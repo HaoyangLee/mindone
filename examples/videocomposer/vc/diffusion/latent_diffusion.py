@@ -224,6 +224,7 @@ class LatentDiffusion(nn.Cell):
         # depth_seq=None, # TODO: adjust to depth net inputs, containing preprocess
         # sketch_seq=None,
         # single_sketch=None, # use the first frame of sketch_seq
+        canny=None,
         misc_images=None,  # for online depth/sketch extraction, and single_image retrieval
     ):
         """
