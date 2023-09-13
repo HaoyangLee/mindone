@@ -187,8 +187,8 @@ def main(cfg):
             param.requires_grad = False
         extra_conds["sketch"] = {
             "pidinet": pidinet,
-            "sketch_mean": cfg.sketch_mean,
-            "sketch_std": cfg.sketch_std,
+            "sketch_mean": np.array(cfg.sketch_mean).reshape((1, -1, 1, 1)),
+            "sketch_std": np.array(cfg.sketch_std).reshape((1, -1, 1, 1)),
             "cleaner": cleaner,
         }
 
@@ -225,6 +225,7 @@ def main(cfg):
         vae,
         clip_text_encoder,
         clip_image_encoder=clip_image_encoder,
+        conditions=cfg.conditions_for_train,
         extra_conds=extra_conds,
         use_fp16=cfg.use_fp16,
         timesteps=cfg.num_timesteps,

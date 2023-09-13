@@ -80,6 +80,52 @@ You can adjust the arguemnts in `vc/config/base.py` (lower-priority) or `configs
 
 
 ## Training
+When using standalone training, please refer to `run_train.sh`:
+```bash
+export GLOG_v=2  # Log message at or above this level. 0:INFO, 1:WARNING, 2:ERROR, 3:FATAL
+export HCCL_CONNECT_TIMEOUT=6000
+export ASCEND_GLOBAL_LOG_LEVEL=1  # Global log message level for Ascend. Setting it to 0 can slow down the process
+export ASCEND_SLOG_PRINT_TO_STDOUT=0 # 1: detail, 0: simple
+export DEVICE_ID=0  # The device id to runing training on
+
+yaml_file=configs/train_exp02_motion_transfer.yaml
+output_path=outputs
+task_name=train_exp02
+rm -rf ${output_path:?}/${task_name:?}
+mkdir -p ${output_path:?}/${task_name:?}
+export MS_COMPILER_CACHE_PATH=${output_path:?}/${task_name:?}
+
+nohup python -u train.py  \
+     -c $yaml_file  \
+     --output_dir $output_path/$task_name \
+    > $output_path/$task_name/train.log 2>&1 &
+
+```
+
+In `configs/train_exp02_motion_transfer.yaml`, there is one critical argument:
+```yaml
+video_compositions: ['text', 'mask', 'depthmap', 'sketch', 'single_sketch', 'motion', 'image', 'local_image', 'single_sketch']
+```
+`video_compositions` defines all available conditions:
+- `text`: the text embedding.
+- `image`: the image embedding used as an image style vector.
+- `local_image`: the first frame extracted from the training video.
+- `mask`: the masked video frames.
+- `depthmap`: the depth images extracted from visual frames.
+- `sketch`: the sketch images extracted from visual frames.
+- `single_sketch`: the first sketch image from `sketch`.
+- `motion`: the motion vectors extracted from the training video.
+
+However, not all conditions are included in the training process. As shown below,
+
+```yaml
+conditions_for_train: ['text', 'local_image', 'motion']
+```
+`configs/train_exp02_motion_transfer.yaml` defines the three conditions used for training are `['text', 'local_image', 'motion']`.
+
+
+When using parallel training, please refer to `run_train_distribute.sh`, and set `output_path`, `task_name`, and `yaml_file` accordingly.
+
 
 ### Standalone Training
 To run training on a sepecifc task, please run

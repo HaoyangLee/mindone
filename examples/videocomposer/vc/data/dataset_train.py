@@ -9,6 +9,7 @@ from PIL import Image
 
 from mindspore import dataset as ds
 
+from ..annotator.canny import CannyDetector
 from ..annotator.mask import make_irregular_mask, make_rectangle_mask, make_uncrop
 from ..annotator.motion import extract_motion_vectors
 from .transforms import create_transforms
@@ -18,6 +19,11 @@ __all__ = [
 ]
 
 _logger = logging.getLogger(__name__)
+
+
+def make_masked_image(img, mask):
+    masked_img = np.concatenate([img * (1 - mask), (1 - mask)], axis=1)
+    return masked_img
 
 
 class VideoDatasetForTrain(object):
@@ -55,6 +61,7 @@ class VideoDatasetForTrain(object):
         self.mv_transforms = mv_transforms
         self.misc_transforms = misc_transforms
         self.vit_transforms = vit_transforms
+        self.canny_detector = CannyDetector()
         self.vit_image_size = vit_image_size
         self.misc_size = misc_size
         self.mvs_visual = mvs_visual
@@ -103,13 +110,27 @@ class VideoDatasetForTrain(object):
         mask = cv2.resize(mask, (self.misc_size, self.misc_size), interpolation=cv2.INTER_NEAREST)
         mask = np.expand_dims(np.expand_dims(mask, axis=0), axis=0)
         mask = np.repeat(mask, repeats=self.max_frames, axis=0)
+        masked_video = make_masked_image((misc_data - 0.5) / 0.5, mask)  # (f, c, h, w)
 
         # adapt for training, output element must map the order of model construct input
         caption_tokens = self.tokenize(cap_txt)
         # style_image = vit_image
         single_image = misc_data[:1].copy()  # [1, 3, h, w]
+        # canny data
+        canny = [self.canny_detector(x) for x in misc_data.transpose((0, 2, 3, 1))]  # (f, c, h, w) -> (f, h, w, c)
+        canny = np.array(canny).transpose((0, 3, 1, 2))  # (f, h, w, c) -> (f, c, h, w)
 
-        return video_data, caption_tokens, feature_framerate, vit_image, mv_data, single_image, mask, misc_data
+        return (
+            video_data,
+            caption_tokens,
+            feature_framerate,
+            vit_image,
+            mv_data,
+            single_image,
+            masked_video,
+            canny,
+            misc_data,
+        )
 
     def _get_video_train_data(self, video_key, feature_framerate, viz_mv):
         filename = video_key
@@ -196,7 +217,8 @@ def build_dataset(cfg, device_num, rank_id, tokenizer):
             "vit_image",
             "mv_data",
             "single_image",
-            "mask",
+            "masked",
+            "canny",
             "misc_data",
         ],
         num_shards=device_num,
