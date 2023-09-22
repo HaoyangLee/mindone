@@ -2,7 +2,7 @@ TASK_TYPE: SINGLE_TASK
 ENABLE: true
 DATASET: webvid10m
 video_compositions: ['text', 'mask', 'depthmap', 'sketch', 'single_sketch', 'motion', 'image', 'local_image', 'single_sketch']
-conditions_for_train: ['text', 'single_sketch']  # PyTorch + Ascend setting
+conditions_for_train: ['text', 'mask', 'depthmap', 'sketch', 'single_sketch', 'motion', 'image', 'local_image', 'single_sketch']  # PyTorch + Ascend setting
 vit_image_size: 224
 network_name: UNetSD_temporal
 resume: true
@@ -14,5 +14,6 @@ learning_rate: 0.00001 #0.00005 in paper, but we are finetuning.
 epochs: 50
 
 # accelerate or memory reduction
-dataset_sink_mode: True
-use_recompute: False  # use_recompute being True scarifices speed for more memory. Set it to True if OOM
+dataset_sink_mode: False
+use_recompute: True
+use_ema: True
