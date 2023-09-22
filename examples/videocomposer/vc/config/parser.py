@@ -94,12 +94,6 @@ class Config(object):
             "--ms_mode", type=int, default=0, help="Running in GRAPH_MODE(0) or PYNATIVE_MODE(1) (default=0)"
         )
         parser.add_argument("--use_parallel", default=False, type=str2bool, help="use parallel")
-        parser.add_argument(
-            "--dataset_sink_mode",
-            default=True,
-            type=str2bool,
-            help="use dataset_sink_mode in model.train. Enable it can boost the performance but step_end callback will be disabled.",
-        )
         parser.add_argument("--profile", default=False, type=str2bool, help="Profile or not")
         parser.add_argument(
             "--output_dir", default="outputs/train", type=str, help="output directory to save training results"

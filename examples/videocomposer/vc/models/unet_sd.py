@@ -789,7 +789,6 @@ class UNetSD_temporal(nn.Cell):
                         disable_self_attn=disabled_sa,
                         use_linear=use_linear_in_temporal,
                         multiply_zero=use_image_dataset,
-                        dtype=self.dtype,
                     )
                 )
             else:
@@ -1290,7 +1289,7 @@ class UNetSD_temporal(nn.Cell):
         # start_time = time.time()
         # decoder
         for i, celllist in enumerate(self.output_blocks, 1):
-            x = ops.cat([x, xs[-i]], axis=1)
+            x = ops.cat([x.to(self.dtype), xs[-i].to(self.dtype)], axis=1)
             for block in celllist:  # 12 blocks in total
                 x = self._forward_single(
                     block,
