@@ -14,6 +14,6 @@ learning_rate: 0.00001 #0.00005 in paper, but we are finetuning.
 epochs: 50
 
 # accelerate or memory reduction
-dataset_sink_mode: False
+dataset_sink_mode: True
 use_recompute: True
 use_ema: True
