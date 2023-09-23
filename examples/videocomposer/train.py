@@ -15,6 +15,7 @@ from vc.annotator.depth import midas_v3_dpt_large
 from vc.annotator.sketch import pidinet_bsd, sketch_simplification_gan
 from vc.config import Config
 from vc.data.dataset_train import build_dataset
+from vc.data.sync_data import sync_data
 from vc.diffusion.latent_diffusion import LatentDiffusion
 from vc.models import AutoencoderKL, FrozenOpenCLIPEmbedder, FrozenOpenCLIPVisualEmbedder, UNetSD_temporal
 from vc.trainer.lr_scheduler import build_lr_scheduler
@@ -59,6 +60,14 @@ def init_env(args):
             gradients_mean=True,
             device_num=device_num,
         )
+        if args.enable_modelarts:
+            src_path = "obs://wangjian-videocomposer/npu_train_0831/train_data/0731_data/"
+            dst_path = "/cache/"
+            sync_data(src_path, dst_path)
+
+            # video_caption.csv can generate before training
+            video_caption_path = "obs://wangjian-videocomposer/mindspore_vc/mindone/examples/videocomposer/demo_video/video_caption.csv"
+            sync_data(video_caption_path, dst_path)
     else:
         device_num = 1
         device_id = int(os.getenv("DEVICE_ID", 0))

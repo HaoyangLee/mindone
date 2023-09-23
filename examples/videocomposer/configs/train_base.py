@@ -36,7 +36,7 @@ cfg.feature_framerate = 4
 cfg.max_frames = 16  # 16 for 910B, set 8 for 910A
 cfg.batch_size = 1
 cfg.chunk_size = 64
-cfg.num_workers = 8  # not used yet
+cfg.num_workers = 16  # not used yet
 cfg.prefetch_factor = 2  # not used yet
 cfg.seed = 8888
 
@@ -152,3 +152,6 @@ cfg.viz_interval = 1000
 cfg.log_interval = 1
 composition_strings = "_".join(cfg.video_compositions)
 cfg.mode = 0  # 0: Graph mode; 1: Pynative mode
+
+# modelarts
+cfg.enable_modelarts = True
