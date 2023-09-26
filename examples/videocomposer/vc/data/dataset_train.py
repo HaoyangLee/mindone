@@ -9,7 +9,6 @@ from PIL import Image
 
 from mindspore import dataset as ds
 
-from ..annotator.canny import CannyDetector
 from ..annotator.mask import make_irregular_mask, make_rectangle_mask, make_uncrop
 from ..annotator.motion import extract_motion_vectors
 from .transforms import create_transforms
@@ -116,9 +115,6 @@ class VideoDatasetForTrain(object):
         caption_tokens = self.tokenize(cap_txt)
         # style_image = vit_image
         single_image = misc_data[:1].copy()  # [1, 3, h, w]
-        # canny data
-        canny = [self.canny_detector(x) for x in misc_data.transpose((0, 2, 3, 1))]  # (f, c, h, w) -> (f, h, w, c)
-        canny = np.array(canny).transpose((0, 3, 1, 2))  # (f, h, w, c) -> (f, c, h, w)
 
         return (
             video_data,
