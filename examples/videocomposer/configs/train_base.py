@@ -12,7 +12,7 @@ cfg.pidinet_checkpoint = "table5_pidinet-37904a63.ckpt"
 cfg.sketch_simplification_checkpoint = "sketch_simplification_gan-b928fdfa.ckpt"
 
 # dataset
-cfg.root_dir = "./demo_video"  # "webvid10m/"
+cfg.root_dir = "/home/ma-user/modelarts/user-job-dir/examples/videocomposer/demo_video"  # "webvid10m/"
 cfg.alpha = 0.7
 cfg.misc_size = 384
 cfg.depth_std = 20.0
@@ -115,7 +115,7 @@ cfg.fix_weight = False
 # resume
 cfg.resume = True
 cfg.resume_step = 228000  # 148000
-cfg.resume_checkpoint = "model_weights/non_ema_228000-7f157ec2.ckpt"
+cfg.resume_checkpoint = "/home/ma-user/modelarts/user-job-dir/examples/videocomposer/model_weights/non_ema_228000-7f157ec2.ckpt"
 
 # acceleration or memory reduction
 # cfg.load_from = None

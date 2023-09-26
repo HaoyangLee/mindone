@@ -335,8 +335,8 @@ def main(cfg):
         )
         key_info += "\n" + "=" * 50
         logger.info(key_info)
-        shutil.copyfile("configs/train_base.py", os.path.join(cfg.output_dir, "train_base.py"))
-        shutil.copyfile(cfg.cfg_file, os.path.join(cfg.output_dir, "train.yaml"))
+        # shutil.copyfile("configs/train_base.py", os.path.join(cfg.output_dir, "train_base.py"))
+        # shutil.copyfile(cfg.cfg_file, os.path.join(cfg.output_dir, "train.yaml"))
 
     # 6. train
     logger.info("Start training. Please wait for graph compilation (~15 mins depending on processor)")
