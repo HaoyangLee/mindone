@@ -267,7 +267,7 @@ class DDIMSampler(object):
                 for k in c:
                     if isinstance(c[k], list):
                         c_in[k] = [
-                            ops.concat([unconditional_conditioning[k][i], c[k][i]]) for i in range(len(c[k]), axis=0)
+                            ops.concat([unconditional_conditioning[k][i], c[k][i]]) for i in range(len(c[k]))
                         ]
                     else:
                         c_in[k] = ops.concat([unconditional_conditioning[k], c[k]])

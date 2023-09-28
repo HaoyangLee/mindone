@@ -24,7 +24,7 @@ from ldm.modules.diffusionmodules.util import (
     timestep_embedding,
     zero_module,
 )
-from ldm.util import is_old_ms_version
+from ldm.util import is_old_ms_version, exists
 
 import mindspore as ms
 import mindspore.nn as nn
@@ -321,6 +321,8 @@ class UNetModel(nn.Cell):
         context_dim=None,  # custom transformer support
         n_embed=None,  # custom support for prediction of discrete ids into codebook of first stage vq model
         legacy=True,
+        disable_self_attentions=None,
+        disable_middle_self_attn=False,
         use_linear_in_transformer=False,
         enable_flash_attention=False,
         adm_in_channels=None,
@@ -355,6 +357,10 @@ class UNetModel(nn.Cell):
         self.model_channels = model_channels
         self.out_channels = out_channels
         self.num_res_blocks = num_res_blocks
+        if disable_self_attentions is not None:
+            # should be a list of booleans, indicating whether to disable self-attention in TransformerBlocks or not
+            assert len(disable_self_attentions) == len(channel_mult)
+
         self.attention_resolutions = attention_resolutions
         self.dropout = 1.0 - dropout
         self.channel_mult = channel_mult
@@ -430,6 +436,11 @@ class UNetModel(nn.Cell):
                         dim_head = num_head_channels
                     if legacy:
                         dim_head = ch // num_heads if use_spatial_transformer else num_head_channels
+                    if exists(disable_self_attentions):
+                        disabled_sa = disable_self_attentions[level]
+                    else:
+                        disabled_sa = False
+
                     layers.append(
                         AttentionBlock(
                             ch,
@@ -445,6 +456,7 @@ class UNetModel(nn.Cell):
                             dim_head,
                             depth=transformer_depth,
                             context_dim=context_dim,
+                            disable_self_attn=disabled_sa,
                             use_checkpoint=use_checkpoint,
                             dtype=self.dtype,
                             dropout=self.dropout,
@@ -519,6 +531,7 @@ class UNetModel(nn.Cell):
                     dim_head,
                     depth=transformer_depth,
                     context_dim=context_dim,
+                    disable_self_attn=disable_middle_self_attn,
                     use_checkpoint=use_checkpoint,
                     dtype=self.dtype,
                     dropout=self.dropout,
@@ -566,6 +579,10 @@ class UNetModel(nn.Cell):
                     if legacy:
                         # num_heads = 1
                         dim_head = ch // num_heads if use_spatial_transformer else num_head_channels
+                    if exists(disable_self_attentions):
+                        disabled_sa = disable_self_attentions[level]
+                    else:
+                        disabled_sa = False
                     layers.append(
                         AttentionBlock(
                             ch,
@@ -581,6 +598,7 @@ class UNetModel(nn.Cell):
                             dim_head,
                             depth=transformer_depth,
                             context_dim=context_dim,
+                            disable_self_attn=disabled_sa,
                             use_checkpoint=use_checkpoint,
                             dtype=self.dtype,
                             dropout=self.dropout,

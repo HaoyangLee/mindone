@@ -183,3 +183,9 @@ def make_beta_schedule(schedule="linear", n_timestep=1000, linear_start=1e-4, li
         raise ValueError(f"schedule '{schedule}' unknown.")
 
     return betas
+
+
+def extract_into_tensor(a, t, x_shape):
+    b, *_ = t.shape
+    out = a.gather_elements(-1, t)
+    return out.reshape(b, *((1,) * (len(x_shape) - 1)))

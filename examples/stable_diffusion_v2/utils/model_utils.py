@@ -35,7 +35,7 @@ def load_param_into_net_with_filter(net, parameter_dict, strict_load=False, filt
         >>> net = Net()
         >>> ckpt_file_name = "./checkpoint/LeNet5-1_32.ckpt"
         >>> param_dict = ms.load_checkpoint(ckpt_file_name, filter_prefix="conv1")
-        >>> param_not_load, _ = ms.load_param_into_net(net, param_dict)
+        >>> param_not_load, _ = ms.load_param_into_net_with_filter(net, param_dict)
         >>> print(param_not_load)
         ['conv1.weight']
     """

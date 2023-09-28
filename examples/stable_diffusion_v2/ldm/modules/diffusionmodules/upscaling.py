@@ -7,7 +7,7 @@ from ldm.util import extract_into_tensor
 import mindspore as ms
 import mindspore.nn as nn
 import mindspore.ops as ops
-from mindspore import Tensor
+from mindspore import Tensor, dtype
 
 
 class AbstractLowScaleModel(nn.Cell):
@@ -18,7 +18,7 @@ class AbstractLowScaleModel(nn.Cell):
             self.register_schedule(**noise_schedule_config)
 
     def register_schedule(
-        self, beta_schedule="linear", timesteps=1000, linear_start=1e-4, linear_end=2e-2, cosine_s=8e-3
+        self, beta_schedule="linear", timesteps=1000, linear_start=1e-4, linear_end=2e-2, cosine_s=8e-3, use_fp16=False,
     ):
         betas = make_beta_schedule(
             beta_schedule, timesteps, linear_start=linear_start, linear_end=linear_end, cosine_s=cosine_s
@@ -33,7 +33,9 @@ class AbstractLowScaleModel(nn.Cell):
         self.linear_end = linear_end
         assert alphas_cumprod.shape[0] == self.num_timesteps, "alphas have to be defined for each timestep"
 
-        to_ms = partial(Tensor, dtype=ms.float32)
+        # to_ms = partial(Tensor, dtype=ms.float32)
+        self.dtype = dtype.float16 if use_fp16 else dtype.float32  # TODO: do we need param use_fp16?
+        to_ms = partial(Tensor, dtype=self.dtype)
 
         self.betas = to_ms(betas)
         self.alphas_cumprod = to_ms(alphas_cumprod)

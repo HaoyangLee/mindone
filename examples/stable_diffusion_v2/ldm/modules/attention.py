@@ -247,15 +247,18 @@ class BasicTransformerBlock(nn.Cell):
         gated_ff=True,
         checkpoint=True,
         dtype=ms.float32,
+        disable_self_attn=False,
         enable_flash_attention=False,
     ):
         super().__init__()
+        self.disable_self_attn = disable_self_attn
         self.attn1 = CrossAttention(
             query_dim=dim,
             heads=n_heads,
             dim_head=d_head,
             dropout=dropout,
             dtype=dtype,
+            context_dim=context_dim if self.disable_self_attn else None,  # is a self-attention if not self.disable_self_attn
             enable_flash_attention=enable_flash_attention,
         )  # is a self-attention
         self.ff = FeedForward(dim, dropout=dropout, glu=gated_ff, dtype=dtype)
@@ -274,7 +277,7 @@ class BasicTransformerBlock(nn.Cell):
         self.checkpoint = checkpoint
 
     def construct(self, x, context=None):
-        x = self.attn1(self.norm1(x)) + x
+        x = self.attn1(self.norm1(x), context=context if self.disable_self_attn else None) + x
         x = self.attn2(self.norm2(x), context=context) + x
         x = self.ff(self.norm3(x)) + x
         return x
@@ -297,6 +300,7 @@ class SpatialTransformer(nn.Cell):
         depth=1,
         dropout=1.0,
         context_dim=None,
+        disable_self_attn=False,
         use_checkpoint=True,
         use_linear=False,
         dtype=ms.float32,
@@ -325,6 +329,7 @@ class SpatialTransformer(nn.Cell):
                     context_dim=context_dim,
                     checkpoint=use_checkpoint,
                     dtype=self.dtype,
+                    disable_self_attn=disable_self_attn,
                     enable_flash_attention=enable_flash_attention,
                 )
                 for d in range(depth)
