@@ -268,7 +268,7 @@ def main(cfg):
         num_epochs=cfg.epochs,
     )
     optimizer = build_optimizer(ldm_with_loss, cfg, learning_rate, eps=cfg.optim_eps)
-    loss_scaler = DynamicLossScaleUpdateCell(loss_scale_value=cfg.loss_scale, scale_factor=2, scale_window=1000)
+    loss_scaler = DynamicLossScaleUpdateCell(loss_scale_value=cfg.loss_scale, scale_factor=2, scale_window=cfg.scale_window)
     ema = (
         EMA(
             ldm_with_loss.unet,

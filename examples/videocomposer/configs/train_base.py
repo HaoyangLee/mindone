@@ -140,6 +140,10 @@ cfg.weight_decay = 0  # not mentioned in paper. let's start with small value
 cfg.use_ema = False
 cfg.ema_decay = 0.9999
 
+# training - loss scale
+cfg.loss_scale = 65536.0
+cfg.scale_window = 2000
+
 cfg.epochs = 50
 cfg.ckpt_save_interval = 50  # 1000 # only save last checkpoint for DEBUG
 cfg.ckpt_max_keep = 3
