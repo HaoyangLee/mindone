@@ -12,7 +12,7 @@ cfg.pidinet_checkpoint = "table5_pidinet-37904a63.ckpt"
 cfg.sketch_simplification_checkpoint = "sketch_simplification_gan-b928fdfa.ckpt"
 
 # dataset
-cfg.root_dir = "./demo_video"  # "webvid10m/"
+cfg.root_dir = "/home/ma-user/modelarts/user-job-dir/examples/videocomposer/demo_video/0731_data"  # "webvid10m/"
 cfg.alpha = 0.7
 cfg.misc_size = 384
 cfg.depth_std = 20.0

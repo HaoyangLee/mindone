@@ -163,7 +163,11 @@ def main(cfg):
         use_recompute=cfg.use_recompute,
     )
     # TODO: use common checkpoiont download, mapping, and loading
-    unet.load_state_dict(cfg.resume_checkpoint)
+    # unet.load_state_dict(cfg.resume_checkpoint)
+    if cfg.resume_checkpoint.endswith(".ckpt") and os.path.exists(cfg.resume_checkpoint):
+        unet.load_state_dict(cfg.resume_checkpoint)
+    else:
+        logger.warning("UNet checkpoint is not given or not exists. UNet will be trained from scratch!!!")
     unet = unet.set_train(True)
 
     # 2.4 other NN-based condition extractors
@@ -317,8 +321,8 @@ def main(cfg):
         )
         key_info += "\n" + "=" * 50
         logger.info(key_info)
-        shutil.copyfile("configs/train_base.py", os.path.join(cfg.output_dir, "train_base.py"))
-        shutil.copyfile(cfg.cfg_file, os.path.join(cfg.output_dir, "train.yaml"))
+        # shutil.copyfile("configs/train_base.py", os.path.join(cfg.output_dir, "train_base.py"))
+        # shutil.copyfile(cfg.cfg_file, os.path.join(cfg.output_dir, "train.yaml"))
 
     # 6. train
     logger.info("Start training. Please wait for graph compilation (~15 mins depending on processor)")
