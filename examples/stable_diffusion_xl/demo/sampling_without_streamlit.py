@@ -6,7 +6,9 @@ import sys
 import time
 
 sys.path.append(".")
+sys.path.append("..")
 
+from cldm.util import get_control
 from gm.helpers import SD_XL_BASE_RATIOS, VERSION2SPECS, create_model, init_sampling, load_img, perform_save_locally
 from gm.util import seed_everything
 from omegaconf import OmegaConf
@@ -36,6 +38,14 @@ def get_parser_sample():
     parser.add_argument("--negative_aesthetic_score", type=float, default=None)
     parser.add_argument("--sampler", type=str, default="EulerEDMSampler")
     parser.add_argument("--guider", type=str, default="VanillaCFG")
+    parser.add_argument(
+        "--guidance_scale",
+        type=float,
+        default=5.0,
+        help="unconditional guidance scale: "
+        "eps = eps(x, uncond) + scale * (eps(x, cond) - eps(x, uncond)). "
+        "Simplified: `uc + scale * (uc - prompt)`",
+    )
     parser.add_argument("--discretization", type=str, default="LegacyDDPMDiscretization")
     parser.add_argument("--sample_step", type=int, default=40)
     parser.add_argument("--num_cols", type=int, default=1)
@@ -69,6 +79,12 @@ def get_parser_sample():
     parser.add_argument(
         "--ms_enable_graph_kernel", type=ast.literal_eval, default=False, help="use enable_graph_kernel or not"
     )
+
+    # for controlnet
+    parser.add_argument("--controlnet_mode", type=str, choices=["canny"])
+    parser.add_argument("--control_image_path", type=str, help="path of input image for controlnet")
+    parser.add_argument("--low_threshold", type=int, default=100, help="param of cv2.Canny()")
+    parser.add_argument("--high_threshold", type=int, default=200, help="param of cv2.Canny()")
 
     # args for ModelArts
     parser.add_argument("--enable_modelarts", type=ast.literal_eval, default=False, help="enable modelarts")
@@ -130,6 +146,7 @@ def run_txt2img(
         sampler=args.sampler,
         num_cols=args.num_cols,
         guider=args.guider,
+        guidance_scale=args.guidance_scale,
         discretization=args.discretization,
         steps=args.sample_step,
         stage2strength=stage2strength,
@@ -138,6 +155,9 @@ def run_txt2img(
 
     print("Txt2Img Sampling")
     outs = []
+    control = None
+    if args.controlnet_mode is not None:
+        control, H, W = get_control(args, num_samples, min(H, W))
     for i, prompt in enumerate(prompts):
         print(f"[{i+1}/{len(prompts)}]: sampling prompt: ", value_dict["prompt"])
         value_dict["prompt"] = prompt
@@ -155,6 +175,7 @@ def run_txt2img(
             filter=filter,
             amp_level=amp_level,
             init_latent_path=args.init_latent_path,
+            control=control,
         )
         print(f"Txt2Img sample step {sampler.num_steps}, time cost: {time.time() - s_time:.2f}s")
 
