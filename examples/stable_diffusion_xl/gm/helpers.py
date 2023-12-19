@@ -223,10 +223,10 @@ def get_loss_scaler(ms_loss_scaler="static", scale_value=1024, scale_factor=2, s
     return loss_scaler
 
 
-def get_learning_rate(optim_comfig, total_step):
-    base_lr = optim_comfig.get("base_learning_rate", 1.0e-6)
-    if "scheduler_config" in optim_comfig:
-        scheduler_config = optim_comfig.get("scheduler_config")
+def get_learning_rate(optim_config, total_step):
+    base_lr = optim_config.get("base_learning_rate", 1.0e-6)
+    if "scheduler_config" in optim_config:
+        scheduler_config = optim_config.get("scheduler_config")
         scheduler = instantiate_from_config(scheduler_config)
         lr = [base_lr * scheduler(step) for step in range(total_step)]
     else:
@@ -236,8 +236,8 @@ def get_learning_rate(optim_comfig, total_step):
     return lr
 
 
-def get_optimizer(optim_comfig, lr, params, filtering=True):
-    optimizer_config = optim_comfig.get("optimizer_config", {"target": "mindspore.nn.SGD"})
+def get_optimizer(optim_config, lr, params, filtering=True):
+    optimizer_config = optim_config.get("optimizer_config", {"target": "mindspore.nn.SGD"})
 
     def decay_filter(x):
         return "norm" not in x.name.lower() and "bias" not in x.name.lower()
