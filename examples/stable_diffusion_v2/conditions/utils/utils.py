@@ -31,3 +31,4 @@ def resize_image(image: np.ndarray, resolution: int) -> np.ndarray:
     h = int(np.round(h * k / 64.0)) * 64
     w = int(np.round(w * k / 64.0)) * 64
     return cv2.resize(image, (w, h), interpolation=cv2.INTER_LANCZOS4 if k > 1 else cv2.INTER_AREA)
+    # return cv2.resize(image, (w, h), interpolation=cv2.INTER_CUBIC if k > 1 else cv2.INTER_AREA) # TODO: more close to ms.dataset.transforms.vision.Resize(size, interpolation)

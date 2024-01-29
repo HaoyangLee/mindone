@@ -68,6 +68,18 @@ def get_parser_train():
     parser.add_argument(
         "--dataset_load_tokenizer", type=ast.literal_eval, default=True, help="create dataset with tokenizer"
     )
+    parser.add_argument(
+        "--total_step",
+        type=int,
+        default=None,
+        help="The number of training steps. If not provided, will use the `total_step` in training yaml file.",
+    )
+    parser.add_argument(
+        "--per_batch_size",
+        type=int,
+        default=None,
+        help="The batch size for training. If not provided, will use `per_batch_size` in training yaml file.",
+    )
 
     # args for infer
     parser.add_argument("--infer_during_train", type=ast.literal_eval, default=False)
@@ -127,6 +139,10 @@ def train(args):
 
     # 3. Create dataloader
     assert "data" in config
+    if args.total_step is not None:
+        config.data["total_step"] = args.total_step
+    if args.per_batch_size is not None:
+        config.data["per_batch_size"] = args.per_batch_size
     dataloader = create_loader(
         data_path=args.data_path,
         rank=args.rank,
@@ -170,9 +186,14 @@ def train(args):
     elif args.ms_mode == 0:
         # Graph Mode
         if isinstance(model.model, nn.Cell):
-            from gm.models.trainer_factory import TrainOneStepCell
+            if "controlnet" in str(model.model.diffusion_model.__class__).lower():
+                from gm.models.trainer_factory import TrainOneStepCellControlNet
+                trainonestepcell = TrainOneStepCellControlNet
+            else:
+                from gm.models.trainer_factory import TrainOneStepCell
+                trainonestepcell = TrainOneStepCell
 
-            train_step_fn = TrainOneStepCell(
+            train_step_fn = trainonestepcell(
                 model,
                 optimizer,
                 reducer,

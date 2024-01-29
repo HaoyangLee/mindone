@@ -10,9 +10,13 @@ import mindspore.numpy as mnp
 from mindspore import Tensor, nn, ops
 
 
-def nonlinearity(x):
+def nonlinearity(x, upcast=False):
     # swish
-    return x * ops.sigmoid(x)
+    ori_dtype = x.dtype
+    if upcast:
+        return x * (ops.sigmoid(x.astype(ms.float32))).astype(ori_dtype)
+    else:
+        return x * ops.sigmoid(x)
 
 
 def Normalize(in_channels, num_groups=32):
@@ -65,12 +69,14 @@ class ResnetBlock(nn.Cell):
         conv_shortcut=False,
         dropout,
         temb_channels=512,
+        upcast_sigmoid=False,
     ):
         super().__init__()
         self.in_channels = in_channels
         out_channels = in_channels if out_channels is None else out_channels
         self.out_channels = out_channels
         self.use_conv_shortcut = conv_shortcut
+        self.upcast_sigmoid = upcast_sigmoid
 
         self.norm1 = Normalize(in_channels)
         self.conv1 = nn.Conv2d(
@@ -96,14 +102,14 @@ class ResnetBlock(nn.Cell):
     def construct(self, x, temb=None):
         h = x
         h = self.norm1(h)
-        h = nonlinearity(h)
+        h = nonlinearity(h, upcast=self.upcast_sigmoid)
         h = self.conv1(h)
 
         if temb is not None:
-            h = h + self.temb_proj(nonlinearity(temb))[:, :, None, None]
+            h = h + self.temb_proj(nonlinearity(temb, upcast=self.upcast_sigmoid))[:, :, None, None]
 
         h = self.norm2(h)
-        h = nonlinearity(h)
+        h = nonlinearity(h, upcast=self.upcast_sigmoid)
         h = self.dropout(h)
         h = self.conv2(h)
 
@@ -264,6 +270,7 @@ class Encoder(nn.Cell):
         use_linear_attn=False,
         attn_type="vanilla",
         encoder_attn_dtype=None,
+        upcast_sigmoid=False,
         **ignore_kwargs,
     ):
         super().__init__()
@@ -278,6 +285,7 @@ class Encoder(nn.Cell):
         self.num_res_blocks = num_res_blocks
         self.resolution = resolution
         self.in_channels = in_channels
+        self.upcast_sigmoid = upcast_sigmoid
 
         # downsampling
         self.conv_in = nn.Conv2d(
@@ -300,6 +308,7 @@ class Encoder(nn.Cell):
                         out_channels=block_out,
                         temb_channels=self.temb_ch,
                         dropout=dropout,
+                        upcast_sigmoid=upcast_sigmoid,
                     )
                 )
                 block_in = block_out
@@ -326,6 +335,7 @@ class Encoder(nn.Cell):
             out_channels=block_in,
             temb_channels=self.temb_ch,
             dropout=dropout,
+            upcast_sigmoid=upcast_sigmoid,
         )
         self.mid.attn_1 = make_attn(block_in, attn_type=attn_type, attn_dtype=encoder_attn_dtype)
         self.mid.block_2 = ResnetBlock(
@@ -333,6 +343,7 @@ class Encoder(nn.Cell):
             out_channels=block_in,
             temb_channels=self.temb_ch,
             dropout=dropout,
+            upcast_sigmoid=upcast_sigmoid,
         )
 
         # end
@@ -370,7 +381,7 @@ class Encoder(nn.Cell):
 
         # end
         h = self.norm_out(h)
-        h = nonlinearity(h)
+        h = nonlinearity(h, upcast=self.upcast_sigmoid)
         h = self.conv_out(h)
         return h
 
@@ -394,6 +405,7 @@ class Decoder(nn.Cell):
         use_linear_attn=False,
         attn_type="vanilla",
         decoder_attn_dtype=None,
+        upcast_sigmoid=False,
         **ignorekwargs,
     ):
         super().__init__()
@@ -410,6 +422,7 @@ class Decoder(nn.Cell):
         self.in_channels = in_channels
         self.give_pre_end = give_pre_end
         self.tanh_out = tanh_out
+        self.upcast_sigmoid = upcast_sigmoid
 
         # compute in_ch_mult, block_in and curr_res at lowest res
         # in_ch_mult = (1,) + tuple(ch_mult)
@@ -525,7 +538,7 @@ class Decoder(nn.Cell):
             return h
 
         h = self.norm_out(h)
-        h = nonlinearity(h)
+        h = nonlinearity(h, upcast=self.upcast_sigmoid)
         h = self.conv_out(h, **kwargs)
         if self.tanh_out:
             h = ops.tanh(h)

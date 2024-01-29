@@ -15,12 +15,12 @@ MAX_VALUE = 1e5
 
 
 class CLIPTextEmbeddings(nn.Cell):
-    def __init__(self, config: CLIPTextConfig):
+    def __init__(self, config: CLIPTextConfig, upcast_attn: bool = False):
         super().__init__()
         embed_dim = config.hidden_size
 
-        self.token_embedding = nn.Embedding(config.vocab_size, embed_dim)
-        self.position_embedding = nn.Embedding(config.max_position_embeddings, embed_dim)
+        self.token_embedding = nn.Embedding(config.vocab_size, embed_dim).to_float(ms.float32) if upcast_attn else nn.Embedding(config.vocab_size, embed_dim)
+        self.position_embedding = nn.Embedding(config.max_position_embeddings, embed_dim).to_float(ms.float32) if upcast_attn else nn.Embedding(config.max_position_embeddings, embed_dim)
 
         # position_ids (1, len position emb) is contiguous in memory and exported when serialized
         self.position_ids = Parameter(
@@ -145,13 +145,13 @@ class CLIPMLP(nn.Cell):
 
 
 class CLIPEncoderLayer(nn.Cell):
-    def __init__(self, config: CLIPConfig):
+    def __init__(self, config: CLIPConfig, upcast_attn: bool = False):
         super().__init__()
         self.embed_dim = config.hidden_size
         self.self_attn = CLIPAttention(config)
-        self.layer_norm1 = nn.LayerNorm([self.embed_dim], epsilon=config.layer_norm_eps)
+        self.layer_norm1 = nn.LayerNorm([self.embed_dim], epsilon=config.layer_norm_eps).to_float(ms.float32) if upcast_attn else nn.LayerNorm([self.embed_dim], epsilon=config.layer_norm_eps)
         self.mlp = CLIPMLP(config)
-        self.layer_norm2 = nn.LayerNorm([self.embed_dim], epsilon=config.layer_norm_eps)
+        self.layer_norm2 = nn.LayerNorm([self.embed_dim], epsilon=config.layer_norm_eps).to_float(ms.float32) if upcast_attn else nn.LayerNorm([self.embed_dim], epsilon=config.layer_norm_eps)
 
     def construct(
         self,
@@ -190,11 +190,11 @@ class CLIPEncoder(nn.Cell):
         config: CLIPConfig
     """
 
-    def __init__(self, config: CLIPConfig):
+    def __init__(self, config: CLIPConfig, upcast_attn: bool = False):
         super().__init__()
         self.config = config
         self.output_hidden_states = self.config.output_hidden_states
-        self.layers = nn.CellList([CLIPEncoderLayer(config) for _ in range(config.num_hidden_layers)])
+        self.layers = nn.CellList([CLIPEncoderLayer(config, upcast_attn) for _ in range(config.num_hidden_layers)])
         self.gradient_checkpointing = False
 
     def construct(
@@ -280,14 +280,14 @@ def _expand_mask(mask, dtype, tgt_len: Optional[int] = None):
 
 
 class CLIPTextTransformer(nn.Cell):
-    def __init__(self, config: CLIPTextConfig):
+    def __init__(self, config: CLIPTextConfig, upcast_attn: bool = False):
         super().__init__()
         self.config = config
         self.output_hidden_states = self.config.output_hidden_states
         embed_dim = config.hidden_size
-        self.embeddings = CLIPTextEmbeddings(config)
-        self.encoder = CLIPEncoder(config)
-        self.final_layer_norm = nn.LayerNorm([embed_dim], epsilon=config.layer_norm_eps)
+        self.embeddings = CLIPTextEmbeddings(config, upcast_attn)
+        self.encoder = CLIPEncoder(config, upcast_attn)
+        self.final_layer_norm = nn.LayerNorm([embed_dim], epsilon=config.layer_norm_eps).to_float(ms.float32) if upcast_attn else nn.LayerNorm([embed_dim], epsilon=config.layer_norm_eps)
 
     def construct(
         self,
@@ -331,11 +331,11 @@ class CLIPTextTransformer(nn.Cell):
 class CLIPTextModel(nn.Cell):
     config_class = CLIPTextConfig
 
-    def __init__(self, config_path, weight=None):
+    def __init__(self, config_path, weight=None, upcast_attn=False):
         config = self.from_pretrained(config_path)  # CLIPTextConfig
         super().__init__(config)
         self.config = config
-        self.text_model = CLIPTextTransformer(config)
+        self.text_model = CLIPTextTransformer(config, upcast_attn)
         self.load_checkpoint(weight)
 
     def get_input_embeddings(self) -> nn.Cell:

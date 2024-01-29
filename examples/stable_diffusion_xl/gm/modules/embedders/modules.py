@@ -251,11 +251,12 @@ class FrozenCLIPEmbedder(AbstractEmbModel):
         layer="last",
         layer_idx=None,
         always_return_pooled=False,
+        upcast_attn=False,
     ):  # clip-vit-base-patch32
         super().__init__()
         assert layer in self.LAYERS
         self.tokenizer = CLIPTokenizer.from_pretrained(version)
-        self.transformer = CLIPTextModel(config_path=version, weight=pretrained)
+        self.transformer = CLIPTextModel(config_path=version, weight=pretrained, upcast_attn=upcast_attn)
 
         if freeze:
             self.freeze()

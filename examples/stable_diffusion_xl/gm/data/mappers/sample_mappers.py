@@ -75,8 +75,30 @@ class Rescaler:
         return sample
 
 
+class RescalerControlNet(Rescaler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def __call__(self, sample: Dict) -> Dict:
+        matching_keys = set(self.keys.intersection(sample))
+
+        for k in matching_keys:
+            if k == "control":
+                sample[k] = sample[k].astype(np.float32) / 255.0
+            elif k == "image":
+                sample[k] = (sample[k].astype(np.float32) / 127.5) - 1.0
+            else:
+                raise ValueError(f"Unexpected key {k} in RescalerControlNet.")
+        return sample
+
+
 class Resize:
-    def __init__(self, key: str = "image", size: Union[int, List] = 256, interpolation: int = 2):
+    def __init__(
+            self,
+            key: Union[List[str], ListConfig, str] = "image",
+            size: Union[int, List] = 256,
+            interpolation: int = 2,
+            ):
         inter_map = {
             0: Inter.NEAREST,
             1: Inter.ANTIALIAS,
@@ -90,10 +112,13 @@ class Resize:
 
         size = size if isinstance(size, int) else list(size)
         self.resize_op = ms.dataset.transforms.vision.Resize(size, interpolation)
-        self.key = key
+        if isinstance(key, str):
+            key = [key]
+        self.key = set(key)
 
     def __call__(self, sample: Dict):
-        sample[self.key] = self.resize_op(sample[self.key])
+        for k in self.key:
+            sample[k] = self.resize_op(sample[k])
         return sample
 
 
@@ -118,15 +143,23 @@ class RandomHorizontalFlip:
 
 
 class Transpose:
-    def __init__(self, key: str = "image", type: str = "hwc2chw"):
-        self.key = key
+    def __init__(
+            self,
+            key: Union[List[str], ListConfig, str] = "image",
+            type: str = "hwc2chw",
+            ):
+        if isinstance(key, str):
+            key = [key]
+        self.key = set(key)
         self.type = type
 
     def __call__(self, sample: Dict):
         if self.type == "hwc2chw":
-            sample[self.key] = np.transpose(sample[self.key], (2, 0, 1))
+            for k in self.key:
+                sample[k] = np.transpose(sample[k], (2, 0, 1))
         elif self.type == "chw2hwc":
-            sample[self.key] = np.transpose(sample[self.key], (1, 2, 0))
+            for k in self.key:
+                sample[k] = np.transpose(sample[k], (1, 2, 0))
         else:
             raise NotImplementedError
 
@@ -137,11 +170,13 @@ class MindDataImageTransforms:
     def __init__(
         self,
         transforms: Union[Union[Dict, DictConfig], ListConfig],
-        key: str = "image",
+        key: Union[List[str], ListConfig, str] = "image",
         strict: bool = True,
     ):
         self.strict = strict
-        self.key = key
+        if isinstance(key, str):
+            key = [key]
+        self.key = set(key)
         chained_transforms = []
 
         if isinstance(transforms, (DictConfig, Dict)):
@@ -154,13 +189,15 @@ class MindDataImageTransforms:
         self.transform = ms.dataset.transforms.Compose(chained_transforms)
 
     def __call__(self, sample: Dict) -> Union[Dict, None]:
-        if self.key not in sample:
-            if self.strict:
-                del sample
-                return None
-            else:
-                return sample
-        sample[self.key] = self.transform(sample[self.key])
+        for k in self.key:
+            if k not in sample:
+                if self.strict:
+                    del sample
+                    return None
+                else:
+                    return sample
+        for k in self.key:
+            sample[k] = self.transform(sample[k])
         return sample
 
 
@@ -172,30 +209,33 @@ class AddOriginalImageSizeAsTupleAndCropToSquare:
 
     def __init__(
         self,
-        image_key: str = "image",
+        image_key: Union[List[str], ListConfig, str] = "image",
         use_data_key: bool = True,
         data_key: str = "json",
     ):
-        self.image_key = image_key
+        if isinstance(image_key, str):
+            image_key = [image_key]
+        self.image_key = set(image_key)
         self.data_key = data_key
         self.use_data_key = use_data_key
 
     def __call__(self, x: Dict) -> Dict:
-        jpg = x[self.image_key]  # (h, w, 3)
-        if not isinstance(jpg, np.ndarray) or jpg.shape[2] != 3:
-            raise ValueError(
-                f"{self.__class__.__name__} requires input image to be a numpy.ndarray with channels-first"
-            )
-        # jpg should be chw tensor  in [-1, 1] at this point
-        size = min(jpg.shape[0], jpg.shape[1])
-        delta_h = jpg.shape[0] - size
-        delta_w = jpg.shape[1] - size
-        assert not all(
-            [delta_h, delta_w]
-        )  # we assume that the image is already resized such that the smallest size is at the desired size. Thus, eiter delta_h or delta_w must be zero
-        top = np.random.randint(0, delta_h + 1)
-        left = np.random.randint(0, delta_w + 1)
-        crop_op = ms.dataset.transforms.vision.Crop((top, left), size)
-        x[self.image_key] = crop_op(jpg)
-        x["crop_coords_top_left"] = np.array([top, left])
+        for k in self.image_key:
+            jpg = x[k]  # (h, w, 3)
+            if not isinstance(jpg, np.ndarray) or jpg.shape[2] != 3:
+                raise ValueError(
+                    f"{self.__class__.__name__} requires input image to be a numpy.ndarray with channels-first"
+                )
+            # jpg should be chw tensor  in [-1, 1] at this point
+            size = min(jpg.shape[0], jpg.shape[1])
+            delta_h = jpg.shape[0] - size
+            delta_w = jpg.shape[1] - size
+            assert not all(
+                [delta_h, delta_w]
+            )  # we assume that the image is already resized such that the smallest size is at the desired size. Thus, eiter delta_h or delta_w must be zero
+            top = np.random.randint(0, delta_h + 1)
+            left = np.random.randint(0, delta_w + 1)
+            crop_op = ms.dataset.transforms.vision.Crop((top, left), size)
+            x[k] = crop_op(jpg)
+            x["crop_coords_top_left"] = np.array([top, left])
         return x

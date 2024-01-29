@@ -14,6 +14,7 @@ from gm.modules.diffusionmodules.util import (
 )
 from gm.util import default, exists
 
+import mindspore as ms
 from mindspore import jit, nn, ops
 
 
@@ -144,6 +145,7 @@ class ResBlock(TimestepBlock):
         kernel_size=3,
         exchange_temb_dims=False,
         skip_t_emb=False,
+        upcast_sigmoid=False,
     ):
         super().__init__()
         self.channels = channels
@@ -163,7 +165,7 @@ class ResBlock(TimestepBlock):
         self.in_layers = nn.SequentialCell(
             [
                 normalization(channels),
-                nn.SiLU(),
+                nn.SiLU().to_float(ms.float32) if upcast_sigmoid else nn.SiLU(),
                 conv_nd(dims, channels, self.out_channels, kernel_size, padding=padding, pad_mode="pad"),
             ]
         )
@@ -189,7 +191,7 @@ class ResBlock(TimestepBlock):
         else:
             self.emb_layers = nn.SequentialCell(
                 [
-                    nn.SiLU(),
+                    nn.SiLU().to_float(ms.float32) if upcast_sigmoid else nn.SiLU(),
                     linear(
                         emb_channels,
                         self.emb_out_channels,
@@ -200,7 +202,7 @@ class ResBlock(TimestepBlock):
         self.out_layers = nn.SequentialCell(
             [
                 normalization(self.out_channels),
-                nn.SiLU(),
+                nn.SiLU().to_float(ms.float32) if upcast_sigmoid else nn.SiLU(),
                 nn.Dropout(p=dropout),
                 zero_module(
                     conv_nd(dims, self.out_channels, self.out_channels, kernel_size, padding=padding, pad_mode="pad")
@@ -441,6 +443,8 @@ class UNetModel(nn.Cell):
         adm_in_channels=None,
         transformer_depth_middle=None,
         use_recompute=False,
+        upcast_attn=False,
+        upcast_sigmoid=False,
     ):
         super().__init__()
         from omegaconf.listconfig import ListConfig
@@ -518,7 +522,7 @@ class UNetModel(nn.Cell):
         self.time_embed = nn.SequentialCell(
             [
                 linear(model_channels, time_embed_dim),
-                nn.SiLU(),
+                nn.SiLU().to_float(ms.float32) if upcast_sigmoid else nn.SiLU(),
                 linear(time_embed_dim, time_embed_dim),
             ]
         )
@@ -536,7 +540,7 @@ class UNetModel(nn.Cell):
                         nn.SequentialCell(
                             [
                                 linear(model_channels, time_embed_dim),
-                                nn.SiLU(),
+                                nn.SiLU().to_float(ms.float32) if upcast_sigmoid else nn.SiLU(),
                                 linear(time_embed_dim, time_embed_dim),
                             ]
                         ),
@@ -549,7 +553,7 @@ class UNetModel(nn.Cell):
                         nn.SequentialCell(
                             [
                                 linear(adm_in_channels, time_embed_dim),
-                                nn.SiLU(),
+                                nn.SiLU().to_float(ms.float32) if upcast_sigmoid else nn.SiLU(),
                                 linear(time_embed_dim, time_embed_dim),
                             ]
                         )
@@ -575,6 +579,7 @@ class UNetModel(nn.Cell):
                         out_channels=mult * model_channels,
                         dims=dims,
                         use_scale_shift_norm=use_scale_shift_norm,
+                        upcast_sigmoid=upcast_sigmoid,
                     )
                 ]
                 ch = mult * model_channels
@@ -610,6 +615,7 @@ class UNetModel(nn.Cell):
                                 disable_self_attn=disabled_sa,
                                 use_linear=use_linear_in_transformer,
                                 attn_type=spatial_transformer_attn_type,
+                                upcast_attn=upcast_attn,
                             )
                         )
                 self.input_blocks.append(TimestepEmbedSequential(*layers))
@@ -627,6 +633,7 @@ class UNetModel(nn.Cell):
                             dims=dims,
                             use_scale_shift_norm=use_scale_shift_norm,
                             down=True,
+                            upcast_sigmoid=upcast_sigmoid,
                         )
                         if resblock_updown
                         else Downsample(ch, conv_resample, dims=dims, out_channels=out_ch)
@@ -652,6 +659,7 @@ class UNetModel(nn.Cell):
                 dropout,
                 dims=dims,
                 use_scale_shift_norm=use_scale_shift_norm,
+                upcast_sigmoid=upcast_sigmoid,
             ),
             AttentionBlock(
                 ch,
@@ -669,6 +677,7 @@ class UNetModel(nn.Cell):
                 disable_self_attn=disable_middle_self_attn,
                 use_linear=use_linear_in_transformer,
                 attn_type=spatial_transformer_attn_type,
+                upcast_attn=upcast_attn,
             ),
             ResBlock(
                 ch,
@@ -676,6 +685,7 @@ class UNetModel(nn.Cell):
                 dropout,
                 dims=dims,
                 use_scale_shift_norm=use_scale_shift_norm,
+                upcast_sigmoid=upcast_sigmoid,
             ),
         )
         self._feature_size += ch
@@ -692,6 +702,7 @@ class UNetModel(nn.Cell):
                         out_channels=model_channels * mult,
                         dims=dims,
                         use_scale_shift_norm=use_scale_shift_norm,
+                        upcast_sigmoid=upcast_sigmoid,
                     )
                 ]
                 ch = model_channels * mult
@@ -727,6 +738,7 @@ class UNetModel(nn.Cell):
                                 disable_self_attn=disabled_sa,
                                 use_linear=use_linear_in_transformer,
                                 attn_type=spatial_transformer_attn_type,
+                                upcast_attn=upcast_attn,
                             )
                         )
                 if level and i == self.num_res_blocks[level]:
@@ -740,6 +752,7 @@ class UNetModel(nn.Cell):
                             dims=dims,
                             use_scale_shift_norm=use_scale_shift_norm,
                             up=True,
+                            upcast_sigmoid=upcast_sigmoid,
                         )
                         if resblock_updown
                         else Upsample(ch, conv_resample, dims=dims, out_channels=out_ch)
@@ -751,7 +764,7 @@ class UNetModel(nn.Cell):
         self.out = nn.SequentialCell(
             [
                 normalization(ch),
-                nn.SiLU(),
+                nn.SiLU().to_float(ms.float32) if upcast_sigmoid else nn.SiLU(),
                 zero_module(conv_nd(dims, model_channels, out_channels, 3, padding=1, pad_mode="pad")),
             ]
         )

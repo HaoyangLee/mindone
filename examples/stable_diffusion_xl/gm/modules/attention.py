@@ -90,6 +90,7 @@ class MemoryEfficientCrossAttention(nn.Cell):
         heads=8,
         dim_head=64,
         dropout=0.0,
+        upcast=False,
     ):
         super().__init__()
 
@@ -100,6 +101,7 @@ class MemoryEfficientCrossAttention(nn.Cell):
 
         self.scale = dim_head**-0.5
         self.heads = heads
+        self.upcast = upcast
 
         self.to_q = nn.Dense(query_dim, inner_dim, has_bias=False)
         self.to_k = nn.Dense(context_dim, inner_dim, has_bias=False)
@@ -139,7 +141,11 @@ class MemoryEfficientCrossAttention(nn.Cell):
                 mask = ops.zeros((q_b, q_n, q_n), ms.uint8)
             out = self.flash_attention(q.to(ms.float16), k.to(ms.float16), v.to(ms.float16), mask.to(ms.uint8))
         else:
-            out = scaled_dot_product_attention(q, k, v, attn_mask=mask)  # scale is dim_head ** -0.5 per default
+            # out = scaled_dot_product_attention(q, k, v, attn_mask=mask)  # scale is dim_head ** -0.5 per default
+            if self.upcast:
+                out = scaled_dot_product_attention(q, k, v, attn_mask=mask, dtype=ms.float32)  # scale is dim_head ** -0.5 per default
+            else:
+                out = scaled_dot_product_attention(q, k, v, attn_mask=mask)  # scale is dim_head ** -0.5 per default
 
         # rearange_out, "b h n d -> b n (h d)"
         b, h, n, d = out.shape
@@ -162,6 +168,7 @@ class CrossAttention(nn.Cell):
         heads=8,
         dim_head=64,
         dropout=0.0,
+        upcast=False,
     ):
         super().__init__()
         inner_dim = dim_head * heads
@@ -169,6 +176,7 @@ class CrossAttention(nn.Cell):
 
         self.scale = dim_head**-0.5
         self.heads = heads
+        self.upcast = upcast
 
         self.to_q = nn.Dense(query_dim, inner_dim, has_bias=False)
         self.to_k = nn.Dense(context_dim, inner_dim, has_bias=False)
@@ -200,7 +208,10 @@ class CrossAttention(nn.Cell):
         v_b, v_n, _ = v.shape
         v = v.view(v_b, v_n, h, -1).transpose(0, 2, 1, 3)
 
-        out = scaled_dot_product_attention(q, k, v, attn_mask=mask)  # scale is dim_head ** -0.5 per default
+        if self.upcast:
+            out = scaled_dot_product_attention(q, k, v, attn_mask=mask, dtype=ms.float32)  # scale is dim_head ** -0.5 per default
+        else:
+            out = scaled_dot_product_attention(q, k, v, attn_mask=mask)  # scale is dim_head ** -0.5 per default
 
         # b h n d -> b n (h d)
         b, h, n, d = out.shape
@@ -229,6 +240,7 @@ class BasicTransformerBlock(nn.Cell):
         gated_ff=True,
         disable_self_attn=False,
         attn_mode="vanilla",  # ["vanilla", "flash-attention"]
+        upcast_attn=False,
     ):
         super().__init__()
         assert attn_mode in self.ATTENTION_MODES
@@ -247,6 +259,7 @@ class BasicTransformerBlock(nn.Cell):
             dim_head=d_head,
             dropout=dropout,
             context_dim=context_dim if self.disable_self_attn else None,
+            upcast=upcast_attn,
         )  # is a self-attention if not self.disable_self_attn
         self.ff = FeedForward(dim, dropout=dropout, glu=gated_ff)
         self.attn2 = attn_cls(
@@ -255,10 +268,17 @@ class BasicTransformerBlock(nn.Cell):
             heads=n_heads,
             dim_head=d_head,
             dropout=dropout,
+            upcast=upcast_attn,
         )  # is self-attn if context is none
-        self.norm1 = nn.LayerNorm([dim], epsilon=1e-5)
-        self.norm2 = nn.LayerNorm([dim], epsilon=1e-5)
-        self.norm3 = nn.LayerNorm([dim], epsilon=1e-5)
+
+        if upcast_attn:
+            self.norm1 = nn.LayerNorm([dim], epsilon=1e-05).to_float(ms.float32)
+            self.norm2 = nn.LayerNorm([dim], epsilon=1e-05).to_float(ms.float32)
+            self.norm3 = nn.LayerNorm([dim], epsilon=1e-05).to_float(ms.float32)
+        else:
+            self.norm1 = nn.LayerNorm([dim], epsilon=1e-5)
+            self.norm2 = nn.LayerNorm([dim], epsilon=1e-5)
+            self.norm3 = nn.LayerNorm([dim], epsilon=1e-5)
 
     def construct(self, x, context=None):
         x = self.attn1(self.norm1(x), context=context if self.disable_self_attn else None) + x
@@ -289,6 +309,7 @@ class SpatialTransformer(nn.Cell):
         disable_self_attn=False,
         use_linear=False,
         attn_type: Literal["vanilla", "flash-attention"] = "vanilla",
+        upcast_attn=False,
     ):
         super().__init__()
         print(f"constructing {self.__class__.__name__} of depth {depth} w/ {in_channels} channels and {n_heads} heads")
@@ -331,6 +352,7 @@ class SpatialTransformer(nn.Cell):
                     context_dim=context_dim[d],
                     disable_self_attn=disable_self_attn,
                     attn_mode=attn_type,
+                    upcast_attn=upcast_attn,
                 )
                 for d in range(depth)
             ]
