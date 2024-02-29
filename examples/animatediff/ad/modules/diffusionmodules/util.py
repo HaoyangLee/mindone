@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+from inspect import isfunction
+
 import numpy as np
 
 import mindspore as ms
@@ -53,15 +55,24 @@ class conv_nd(nn.Cell):
         return x
 
 
+# def zero_module(module):
+#     """
+#     Zero out the parameters of a module and return it.
+#     """
+#     weight = initializer("zeros", module.conv.weight.shape)
+#     bias_weight = initializer("zeros", module.conv.bias.shape)
+#     module.conv.weight.set_data(weight)
+#     module.conv.bias.set_data(bias_weight)
+
+#     return module
+
+
 def zero_module(module):
     """
     Zero out the parameters of a module and return it.
     """
-    weight = initializer("zeros", module.conv.weight.shape)
-    bias_weight = initializer("zeros", module.conv.bias.shape)
-    module.conv.weight.set_data(weight)
-    module.conv.bias.set_data(bias_weight)
-
+    for n, p in module.parameters_and_names():
+        ops.assign(p, ops.zeros_like(p))
     return module
 
 
@@ -243,3 +254,8 @@ def make_beta_schedule(schedule="linear", n_timestep=1000, linear_start=1e-4, li
         raise ValueError(f"schedule '{schedule}' unknown.")
 
     return betas
+
+def default(val, d):
+    if val is not None:
+        return val
+    return d() if isfunction(d) else d

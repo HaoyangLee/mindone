@@ -150,8 +150,8 @@ def load_motion_modules(
 
     # add prefix (used in the whole sd model) to param if needed
     mm_pnames = list(mm_state_dict.keys())
-    for pname in mm_pnames:
-        if add_ldm_prefix:
+    if add_ldm_prefix:
+        for pname in mm_pnames:
             if not pname.startswith(ldm_prefix):
                 new_pname = ldm_prefix + pname
                 # remove duplicated "diffusion_model" caused by saving mm only during training

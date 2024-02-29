@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 
 import numpy as np
-from omegaconf import OmegaConf
+from omegaconf import OmegaConf, ListConfig
 
 import mindspore as ms
 
@@ -65,7 +65,7 @@ def main(args):
         # style_lora_alpha = lora_scale = ad_config.get("lora_alpha", 0.8)
 
         motion_module_paths = ad_config.get("motion_module", "")
-        motion_module_path = motion_module_paths[0]  # TODO: support testing multiple ckpts
+        motion_module_path = motion_module_paths[0] if isinstance(motion_module_paths, ListConfig) else motion_module_paths  # TODO: support testing multiple ckpts
         if args.motion_module_path != "":
             motion_module_path = args.motion_module_path
 
@@ -136,6 +136,7 @@ def main(args):
             ckpt=sd_model_path,
             use_motion_module=use_motion_module,  # indicate unet 2d->3d param name changes
         )
+        import pdb; pdb.set_trace()
         # load lora to sd if applicable
         if use_adapter_lora:
             sd_model = load_adapter_lora(sd_model, adapter_lora_path, adapter_lora_scale)
@@ -273,7 +274,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--pretrained_model_path",
         type=str,
-        default="models/stable_diffusion/sd_v1.5-d0ab7146.ckpt",
+        default="",
     )
     parser.add_argument("--all_in_one_ckpt", type=str, default="", help="if not empty, load SD+mm from this file")
     parser.add_argument("--inference_config", type=str, default="configs/inference/inference-v2.yaml")
