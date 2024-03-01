@@ -9,7 +9,8 @@ from mindone.utils.amp import auto_mixed_precision
 
 from ..attention import SpatialTransformer
 from .motion_module import VanillaTemporalModule, get_motion_module
-from .openaimodel import AttentionBlock, Downsample, ResBlock, Upsample, Timestep
+from .openaimodel import Timestep
+# from .openaimodel import AttentionBlock, Downsample, ResBlock, Upsample, Timestep # TODO: can reuse some modules from sd
 from .util import conv_nd, linear, normalization, timestep_embedding, zero_module, default
 from .unet3d import rearrange_in, rearrange_out
 
@@ -44,6 +45,260 @@ class TimestepEmbedSequential(nn.SequentialCell, TimestepBlock):
                 else:
                     x = cell(x)
         return x
+
+class Upsample(nn.Cell):
+    """
+    An upsampling layer with an optional convolution.
+    :param channels: channels in the inputs and outputs.
+    :param use_conv: a bool determining if a convolution is applied.
+    :param dims: determines if the signal is 1D, 2D, or 3D. If 3D, then
+                 upsampling occurs in the inner-two dimensions.
+    """
+
+    def __init__(self, channels, use_conv, dims=2, out_channels=None, padding=1, third_up=False):
+        super().__init__()
+        self.channels = channels
+        self.out_channels = out_channels or channels
+        self.use_conv = use_conv
+        self.dims = dims
+        self.third_up = third_up
+        if use_conv:
+            self.conv = conv_nd(dims, self.channels, self.out_channels, 3, padding=padding, pad_mode="pad")
+
+    def construct(self, x):
+        # assert x.shape[1] == self.channels
+        if self.dims == 3:
+            t_factor = 1 if not self.third_up else 2
+
+            # x = ops.interpolate(x, size=(t_factor * x.shape[2], x.shape[3] * 2, x.shape[4] * 2), mode="nearest",)
+            x = ops.ResizeNearestNeighbor(
+                size=(t_factor * x.shape[2], x.shape[3] * 2, x.shape[4] * 2),
+            )(x)
+        else:
+            # x = ops.interpolate(x, size=(x.shape[-2] * 2, x.shape[-1] * 2), mode="nearest")  # scale_factor=2., (not support with ms2.1)
+            x = ops.ResizeNearestNeighbor(
+                size=(x.shape[-2] * 2, x.shape[-1] * 2),
+            )(x)
+        if self.use_conv:
+            x = self.conv(x)
+        return x
+
+
+class Downsample(nn.Cell):
+    """
+    A downsampling layer with an optional convolution.
+    :param channels: channels in the inputs and outputs.
+    :param use_conv: a bool determining if a convolution is applied.
+    :param dims: determines if the signal is 1D, 2D, or 3D. If 3D, then
+                 downsampling occurs in the inner-two dimensions.
+    """
+
+    def __init__(self, channels, use_conv, dims=2, out_channels=None, padding=1, third_down=False):
+        super().__init__()
+        self.channels = channels
+        self.out_channels = out_channels or channels
+        self.use_conv = use_conv
+        self.dims = dims
+        stride = 2 if dims != 3 else ((1, 2, 2) if not third_down else (2, 2, 2))
+        if use_conv:
+            # disable building print
+            # print(f"Building a Downsample layer with {dims} dims.")
+            # print(
+            #     f"  --> settings are: \n in-chn: {self.channels}, out-chn: {self.out_channels}, "
+            #     f"kernel-size: 3, stride: {stride}, padding: {padding}"
+            # )
+            # if dims == 3:
+            #     print(f"  --> Downsampling third axis (time): {third_down}")
+
+            self.op = conv_nd(dims, self.channels, self.out_channels, 3, stride=stride, padding=padding, pad_mode="pad")
+        else:
+            assert self.channels == self.out_channels
+            self.op = avg_pool_nd(dims, kernel_size=stride, stride=stride)
+
+    def construct(self, x):
+        # assert x.shape[1] == self.channels
+        return self.op(x)
+
+
+class ResBlock(TimestepBlock):
+    """
+    A residual block that can optionally change the number of channels.
+    :param channels: the number of input channels.
+    :param emb_channels: the number of timestep embedding channels.
+    :param dropout: the rate of dropout.
+    :param out_channels: if specified, the number of out channels.
+    :param use_conv: if True and out_channels is specified, use a spatial
+        convolution instead of a smaller 1x1 convolution to change the
+        channels in the skip connection.
+    :param dims: determines if the signal is 1D, 2D, or 3D.
+    :param up: if True, use this block for upsampling.
+    :param down: if True, use this block for downsampling.
+    """
+
+    def __init__(
+        self,
+        channels,
+        emb_channels,
+        dropout,
+        out_channels=None,
+        use_conv=False,
+        use_scale_shift_norm=False,
+        dims=2,
+        up=False,
+        down=False,
+        kernel_size=3,
+        exchange_temb_dims=False,
+        skip_t_emb=False,
+        norm_in_5d=False,
+    ):
+        """
+        norm_in_5d: If True, normalize the input of shape (b c f h w), i.e. reduce mean and variance to the first 2 axis (b c),
+            which is equal to use_inflated_groupnorm=False in torch AnimateDiff. If false, normalize the input of shape (b*f c h w),
+            i.e. reduce mean and var to the first 2 axis (b*f c), equal to use_inflated_groupnorm=True.
+        """
+        super().__init__()
+        self.channels = channels
+        self.emb_channels = emb_channels
+        self.dropout = dropout
+        self.out_channels = out_channels or channels
+        self.use_conv = use_conv
+        self.use_scale_shift_norm = use_scale_shift_norm
+        self.exchange_temb_dims = exchange_temb_dims
+
+        if isinstance(kernel_size, Iterable):
+            # MS doesn't support lists; MS requires padding for each side.
+            padding = tuple(k // 2 for k in kernel_size for _ in range(2))
+        else:
+            padding = kernel_size // 2
+
+        self.in_layers = nn.SequentialCell(
+            [
+                normalization(channels, norm_in_5d=norm_in_5d),
+                nn.SiLU(),
+                conv_nd(dims, channels, self.out_channels, kernel_size, padding=padding, pad_mode="pad"),
+            ]
+        )
+
+        self.updown = up or down
+
+        if up:
+            self.h_upd = Upsample(channels, False, dims)
+            self.x_upd = Upsample(channels, False, dims)
+        elif down:
+            self.h_upd = Downsample(channels, False, dims)
+            self.x_upd = Downsample(channels, False, dims)
+        else:
+            self.h_upd = self.x_upd = nn.Identity()
+
+        self.skip_t_emb = skip_t_emb
+        self.emb_out_channels = 2 * self.out_channels if use_scale_shift_norm else self.out_channels
+        if self.skip_t_emb:
+            print(f"Skipping timestep embedding in {self.__class__.__name__}")
+            assert not self.use_scale_shift_norm
+            self.emb_layers = None
+            self.exchange_temb_dims = False
+        else:
+            self.emb_layers = nn.SequentialCell(
+                [
+                    nn.SiLU(),
+                    linear(
+                        emb_channels,
+                        self.emb_out_channels,
+                    ),
+                ]
+            )
+
+        self.out_layers = nn.SequentialCell(
+            [
+                normalization(self.out_channels, norm_in_5d=norm_in_5d),
+                nn.SiLU(),
+                nn.Dropout(p=dropout),
+                zero_module(
+                    conv_nd(dims, self.out_channels, self.out_channels, kernel_size, padding=padding, pad_mode="pad")
+                ),
+            ]
+        )
+
+        if self.out_channels == channels:
+            self.skip_connection = nn.Identity()
+        elif use_conv:
+            self.skip_connection = conv_nd(
+                dims, channels, self.out_channels, kernel_size, padding=padding, pad_mode="pad"
+            )
+        else:
+            self.skip_connection = conv_nd(dims, channels, self.out_channels, 1)
+
+    def construct(self, x, emb):
+        if self.updown:
+            in_rest, in_conv = self.in_layers[:-1], self.in_layers[-1]
+            h = in_rest(x)
+            h = self.h_upd(h)
+            x = self.x_upd(x)
+            h = in_conv(h)
+        else:
+            h = self.in_layers(x)
+
+        if self.skip_t_emb:
+            emb_out = ops.zeros_like(h)
+        else:
+            emb_out = self.emb_layers(emb)
+        while len(emb_out.shape) < len(h.shape):
+            emb_out = emb_out[..., None]
+        if self.use_scale_shift_norm:
+            out_norm, out_rest = self.out_layers[0], self.out_layers[1:]
+            scale, shift = ops.chunk(emb_out, 2, axis=1)
+            h = out_norm(h) * (1 + scale) + shift
+            h = out_rest(h)
+        else:
+            if self.exchange_temb_dims:
+                # emb_out = rearrange(emb_out, "b t c ... -> b c t ...")
+                emb_out = emb_out.swapaxes(1, 2)  # (b, t, c, ...) -> (b, c, t, ...)
+            h = h + emb_out
+            h = self.out_layers(h)
+        return self.skip_connection(x) + h
+
+
+# TODO: Add Flash Attention Support
+class AttentionBlock(nn.Cell):
+    """
+    An attention block that allows spatial positions to attend to each other.
+    Originally ported from here, but adapted to the N-d case.
+    https://github.com/hojonathanho/diffusion/blob/1e0dceb3b3495bbe19116a5e1b3596cd0706c543/diffusion_tf/models/unet.py#L66.
+    """
+
+    def __init__(
+        self,
+        channels,
+        num_heads=1,
+        num_head_channels=-1,
+        use_new_attention_order=False,
+    ):
+        super().__init__()
+        self.channels = channels
+        if num_head_channels == -1:
+            self.num_heads = num_heads
+        else:
+            assert (
+                channels % num_head_channels == 0
+            ), f"q,k,v channels {channels} is not divisible by num_head_channels {num_head_channels}"
+            self.num_heads = channels // num_head_channels
+        self.norm = normalization(channels)
+        self.qkv = conv_nd(1, channels, channels * 3, 1)
+        if use_new_attention_order:
+            # split qkv before split heads
+            self.attention = QKVAttention(self.num_heads)
+        else:
+            # split heads before split qkv
+            self.attention = QKVAttentionLegacy(self.num_heads)
+
+        self.proj_out = zero_module(conv_nd(1, channels, channels, 1))
+
+    def construct(self, x):
+        b, c, _, _ = x.shape
+        qkv = self.qkv(self.norm(x).reshape(b, c, -1))
+        h = self.attention(qkv)
+        h = self.proj_out(h)
+        return x + h.reshape(*x.shape)
 
 
 class UNet3DModel(nn.Cell):
