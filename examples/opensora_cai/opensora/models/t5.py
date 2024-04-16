@@ -218,3 +218,7 @@ class T5Embedder(nn.Cell):
         caption = re.sub(r"^\.\S+$", "", caption)
 
         return caption.strip()
+
+    def null(self, n):
+        null_y = self.y_embedder.y_embedding[None].repeat([n], axis=0)
+        return null_y

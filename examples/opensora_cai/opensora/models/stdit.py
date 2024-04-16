@@ -284,7 +284,7 @@ class CaptionEmbedder(nn.Cell):
 
         y_embedding = ops.randn(token_num, in_channels) / in_channels**0.5
         # just for token dropping replacement, not learnable
-        self.y_embedding = ms.Tensor(y_embedding, dtype=ms.float32)
+        self.y_embedding = ms.Parameter(y_embedding.to(ms.float32))
 
         self.uncond_prob = uncond_prob
 
@@ -363,7 +363,7 @@ class STDiT(nn.Cell):
         self.hidden_size = hidden_size
         self.patch_size = patch_size
         self.input_size = input_size
-        num_patches = np.prod([input_size[i] // patch_size[i] for i in range(3)])
+        num_patches = int(np.prod([input_size[i] // patch_size[i] for i in range(3)]))
         self.num_patches = num_patches
         self.num_temporal = input_size[0] // patch_size[0]
         self.num_spatial = num_patches // self.num_temporal

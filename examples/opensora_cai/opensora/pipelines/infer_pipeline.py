@@ -106,7 +106,8 @@ class InferPipeline(ABC):
                 text_emb = inputs["text_emb"]
 
             if self.use_cfg:
-                y, y_null = text_emb, ops.zeros_like(text_emb)
+                y = text_emb
+                y_null = self.text_encoder.null(text_emb.shape[0])
                 y = ops.cat([y, y_null], axis=0)
                 x_in = ops.concat([x] * 2, axis=0)
                 assert y.shape[0] == x_in.shape[0], "shape mismatch!"

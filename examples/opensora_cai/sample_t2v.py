@@ -275,6 +275,7 @@ def main(args):
             assert n > 0, "No captions provided"
             text_tokens, mask = text_encoder.get_text_tokens_and_mask(args.captions, return_tensor=True)
             text_emb = None
+            text_encoder.y_embedder = latte_model.y_embedder  # classifier-free guidance
         else:
             dat = np.load(args.embed_path)
             text_tokens, mask, text_emb = dat["tokens"], dat["mask"], dat["text_emb"]
@@ -346,7 +347,10 @@ def main(args):
     start_time = time.time()
 
     # infer
-    x_samples = pipeline(inputs, latent_save_fp="outputs/denoised_latent.npy")
+    latent_save_fp = "outputs/denoised_latent.npy"
+    if os.path.dirname(latent_save_fp):
+        os.makedirs(os.path.dirname(latent_save_fp), exist_ok=True)
+    x_samples = pipeline(inputs, latent_save_fp=latent_save_fp)
     x_samples = x_samples.asnumpy()
 
     end_time = time.time()
