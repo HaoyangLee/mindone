@@ -13,6 +13,7 @@ from mindspore import nn, ops
 
 from mindone.utils.config import instantiate_from_config
 from mindone.utils.misc import default, exists, extract_into_tensor
+from infer_engine.utils.export import model_export
 
 _logger = logging.getLogger(__name__)
 
@@ -48,6 +49,7 @@ class DDPM(nn.Cell):
         logvar_init=0.0,
         use_fp16=False,
         rescale_betas_zero_snr=False,
+        export_mindir=False,
     ):
         """
         Classic DDPM with Gaussian diffusion
@@ -108,6 +110,7 @@ class DDPM(nn.Cell):
             self.logvar = Parameter(self.logvar, requires_grad=True)
         self.mse_mean = nn.MSELoss(reduction="mean")
         self.mse_none = nn.MSELoss(reduction="none")
+        self.export_mindir = export_mindir
 
     def register_schedule(
         self,
@@ -324,6 +327,7 @@ class LatentDiffusion(DDPM):
             z = ops.reshape(z, (-1, z.shape[2], z.shape[3], z.shape[4]))  # (b t c h w) -> ((b t) c h w)
             reshape_back = True
         else:
+            b, t = None, None
             reshape_back = False
 
         if not self.perframe_ae:
@@ -353,6 +357,7 @@ class LatentDiffusion(DDPM):
             x = ops.reshape(x, (-1, *x.shape[2:]))  # ((b t) c h w)
             reshape_back = True
         else:
+            b, t = None, None
             reshape_back = False
 
         # consume more chip memory but faster
@@ -386,8 +391,14 @@ class LatentDiffusion(DDPM):
             key = "c_concat" if self.model.conditioning_key == "concat" else "c_crossattn"
             cond = {key: cond}
 
+        # import pdb;pdb.set_trace()
+        if self.export_mindir:
+            # FIXME
+            mindir_input = [x_noisy, t, cond['c_concat'], cond['c_crossattn'], kwargs]
+            # mindir_input = [x_noisy, t, cond['c_concat'], cond['c_crossattn'], kwargs["fs"], kwargs["cfg_img"], kwargs["unconditional_conditioning_img_nonetext"]]
+            model_export(self.model, mindir_input, name="diffusion_model", model_save_path="./models_256/mindir")
         prev_sample = self.model(x_noisy, t, **cond, **kwargs)
-
+        # import pdb;pdb.set_trace()
         return prev_sample
 
     def get_latent_z(self, videos):
@@ -425,8 +436,10 @@ class LatentDiffusion(DDPM):
 
     def get_learned_conditioning(self, c):
         if self.cond_stage_forward is None:
-            tokens, _ = self.cond_stage_model.tokenize(c)  # text -> tensor
-            c = self.cond_stage_model.encode(Tensor(tokens))
+            tokens, _ = self.cond_stage_model.tokenize(c)   # text -> tensor
+            if self.export_mindir:
+                model_export(self.cond_stage_model, [Tensor(tokens)], name="cond_stage", model_save_path="./models_256/mindir")
+            c = self.cond_stage_model(Tensor(tokens))
         else:
             raise NotImplementedError
             # assert hasattr(self.zcond_stage_model, self.cond_stage_forward)
