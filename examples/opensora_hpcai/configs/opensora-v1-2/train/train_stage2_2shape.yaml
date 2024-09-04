@@ -68,10 +68,10 @@ mask_ratios:
 bucket_config:
   # Structure: "resolution": { num_frames: [ keep_prob, batch_size ] }
   # Setting [ keep_prob, batch_size ] to [ 0.0, 0 ] forces longer videos into smaller resolution buckets
-  "240p": { 51: [ 1.0, 20 ] }
-  # "360p": { 51: [ 0.7, 8 ] }
-  "512": { 51: [ 0.4, 8 ] }
-  # "480p": { 51: [ 0.3, 5 ] } 
+  "240p": { 51: [ 1.0, 1 ] }
+  # "360p": { 51: [ 0.7, 1 ] }
+  "512": { 51: [ 0.4, 1 ] }
+  # "480p": { 51: [ 0.3, 1 ] } 
 
 
 # ---------- Validation ----------
