@@ -838,30 +838,31 @@ def main(args):
 
             start_time_s = time.time()
             for step, data in enumerate(ds_iter, 1):
-                loss, overflow, scaling_sens = net_with_grads(*data)
+                # loss, overflow, scaling_sens = net_with_grads(*data)
                 global_step += 1
                 step_time = time.time() - start_time_s
 
                 # log
-                # print(data[0].shape)
-                loss_val = float(loss.asnumpy())
+                print(data[0].shape)
+                loss_val = 0
+                overflow = False
                 logger.info(
                     f"Epoch {epoch}, Step {step}, loss {loss_val:.5f}, Global step {global_step}, Step time {step_time*1000:.2f}ms"
                 )
                 if overflow:
                     logger.warning("overflow detected")
 
-                if rank_id == 0:
-                    step_pref_value = [global_step, loss_val, step_time]
-                    record.add(*step_pref_value)
-                # save and eval in step
-                if save_by_step and rank_id == 0:
-                    if (global_step % args.ckpt_save_steps == 0) or (global_step == args.train_steps):
-                        ckpt_name = f"{model_name}-s{global_step}.ckpt"
-                        # save model ckpt and ema ckpt
-                        save_ema_ckpts(latent_diffusion_with_loss.network, ema, ckpt_manager, ckpt_name)
-                        # save train state for resume
-                        save_train_net(net_with_grads, ckpt_dir, epoch - 1, global_step)
+                # if rank_id == 0:
+                #     step_pref_value = [global_step, loss_val, step_time]
+                #     record.add(*step_pref_value)
+                # # save and eval in step
+                # if save_by_step and rank_id == 0:
+                #     if (global_step % args.ckpt_save_steps == 0) or (global_step == args.train_steps):
+                #         ckpt_name = f"{model_name}-s{global_step}.ckpt"
+                #         # save model ckpt and ema ckpt
+                #         save_ema_ckpts(latent_diffusion_with_loss.network, ema, ckpt_manager, ckpt_name)
+                #         # save train state for resume
+                #         save_train_net(net_with_grads, ckpt_dir, epoch - 1, global_step)
                 if (args.train_steps > 0) and (global_step >= args.train_steps):
                     end_train = True
                     break
@@ -869,16 +870,16 @@ def main(args):
                 start_time_s = time.time()
 
             # save and eval in epoch
-            if not save_by_step and rank_id == 0:
-                if (epoch % args.ckpt_save_interval == 0) or (epoch == num_epochs):
-                    ckpt_name = f"{model_name}-e{epoch}.ckpt"
-                    # save model ckpt and ema ckpt
-                    save_ema_ckpts(latent_diffusion_with_loss.network, ema, ckpt_manager, ckpt_name)
-                    # save train state for resume
-                    save_train_net(net_with_grads, ckpt_dir, epoch, global_step)
+            # if not save_by_step and rank_id == 0:
+            #     if (epoch % args.ckpt_save_interval == 0) or (epoch == num_epochs):
+            #         ckpt_name = f"{model_name}-e{epoch}.ckpt"
+            #         # save model ckpt and ema ckpt
+            #         save_ema_ckpts(latent_diffusion_with_loss.network, ema, ckpt_manager, ckpt_name)
+            #         # save train state for resume
+            #         save_train_net(net_with_grads, ckpt_dir, epoch, global_step)
 
             dataloader.reset()
-            flush_from_cache(net_with_grads)
+            # flush_from_cache(net_with_grads)
 
             if end_train:
                 break
