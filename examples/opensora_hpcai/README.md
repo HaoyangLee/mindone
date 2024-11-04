@@ -691,15 +691,12 @@ Here are some generation results after fine-tuning STDiT2 on a mixkit subset.
 #### Training Performance
 
 Experiments are tested on ascend 910* with mindspore 2.3.1 graph mode.
-| model name   | cards  | batch size | resolution   | precision  | jit level    | s/step    | 
-| :--:         | :--:   | :--:       | :--:         | :--:       | :--:         |:--:       | 
-| STDiT2-XL/2  |  8     | 2          | 16x256x256   | fp16       | O1           | 1.10      | 
-| STDiT3-XL/2  |  8     | 1          | 16x512x512   | fp16       | O1           | 1.67      | 
-| STDiT3-XL/2  |  8     | 1          | 64x512x512   | fp16       | O1           | 5.72      | 
-| STDiT3-XL/2  |  8     | 1          | 64x512x512   | bf16       | O1           | 6.80      | 
-| STDiT3-XL/2  |  8     | 1          | 300x512x512  | fp16       | O1           | 37.00     | 
+| model name   | cards  | batch size | resolution   | stage | precision | sink |  jit level   | graph compile | s/step | recipe | 
+| :--:         | :--:   | :--:       | :--:         | :--:  | :--:      |:--:  | :--:         | :--:          |:--:    |:--:    | 
+| STDiT2-XL/2  |  8     | 3          | 16x256x256   | 1     | bf16      |  ON  | O1           | 5~6 mins      |  1.43  | [yaml](configs/opensora/train/stdit_256x256x16_ms.yaml) |
+| STDiT3-XL/2  |  8     | 1          | 16x512x512   | 2     | bf16      |  ON  | O1           | 5~6 mins      |  2.05  | [yaml](configs/opensora/train/stdit_512x512x16.yaml) |
+| STDiT3-XL/2  |  8     | 1          | 64x512x512   | 3     | bf16      |  ON  | O1           | 5~6 mins      |  7.82  | [yaml](configs/opensora/train/stdit_512x512x64_ms.yaml) |
 
-Note that training on 300 frames at 512x512 resolution is achieved by optimization+data parallelism with t5 cached embeddings.
 
 ** Tips ** for performance optimization: to speed up training, you can set `dataset_sink_mode` as True and reduce `num_recompute_blocks` from 28 to a number that doesn't lead to out-of-memory.
 
