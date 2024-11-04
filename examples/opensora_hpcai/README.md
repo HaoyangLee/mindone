@@ -332,6 +332,14 @@ We also provide a three-stage sampling script `run_sole_3stages.sh` to reduce me
 
 For more usage on the inference script, please run `python scripts/inference.py -h`
 
+#### Inference Performance
+
+| model name      |  cards | batch size | resolution | graph compile | jit_level | precision |  scheduler   | step      | s/step     | s/video | recipe |
+| :--:         | :--:   | :--:       | :--:       | :--:       | :--:       | :--:       | :--:       | :--:      |:--:    | :--:   |:--:   |
+| STDiT2-XL/2 | 1 | 4 | 16x256x256 | 1~2 mins | O0 | fp32 | DDPM | 100 |  0.39 | 39.22 | [yaml](configs/opensora/inference/stdit_256x256x16.yaml) |
+| STDiT2-XL/2 | 1 | 1 | 16x512x512 | 1~2 mins | O0 | fp32 | DDPM | 100 |  1.85 | 185.00 | [yaml](configs/opensora/inference/stdit_512x512x16.yaml) |
+| STDiT2-XL/2 | 1 | 1 | 64x512x512 | 1~2 mins | O0 | bf16 | DDPM | 100 |  2.78 | 278.45 | [yaml](configs/opensora/inference/stdit_512x512x64.yaml) |
+
 </details>
 
 <br>
