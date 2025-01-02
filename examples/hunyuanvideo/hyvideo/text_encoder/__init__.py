@@ -24,7 +24,6 @@ def load_text_encoder(
     text_encoder_precision=None,
     text_encoder_path=None,
     logger=None,
-    device=None,
 ):
     if text_encoder_path is None:
         text_encoder_path = TEXT_ENCODER_PATH[text_encoder_type]
@@ -52,9 +51,6 @@ def load_text_encoder(
 
     if logger is not None:
         logger.info(f"Text encoder to dtype: {text_encoder.dtype}")
-
-    if device is not None:
-        text_encoder = text_encoder.to(device)
 
     return text_encoder, text_encoder_path
 
@@ -124,7 +120,6 @@ class TextEncoder(nn.Cell):
         apply_final_norm: bool = False,
         reproduce: bool = False,
         logger=None,
-        device=None,
     ):
         super().__init__()
         self.text_encoder_type = text_encoder_type
@@ -189,10 +184,8 @@ class TextEncoder(nn.Cell):
             text_encoder_precision=self.precision,
             text_encoder_path=self.model_path,
             logger=self.logger,
-            device=device,
         )
         self.dtype = self.model.dtype
-        self.device = self.model.device
 
         self.tokenizer, self.tokenizer_path = load_tokenizer(
             tokenizer_type=self.tokenizer_type,
@@ -284,7 +277,6 @@ class TextEncoder(nn.Cell):
         hidden_state_skip_layer=None,
         return_texts=False,
         data_type="image",
-        device=None,
     ):
         """
         Args:
@@ -300,17 +292,16 @@ class TextEncoder(nn.Cell):
                 If None, self.output_key will be used. Defaults to None.
             return_texts (bool): Whether to return the decoded texts. Defaults to False.
         """
-        device = self.model.device if device is None else device
         use_attention_mask = use_default(use_attention_mask, self.use_attention_mask)
         hidden_state_skip_layer = use_default(
             hidden_state_skip_layer, self.hidden_state_skip_layer
         )
         do_sample = use_default(do_sample, not self.reproduce)
         attention_mask = (
-            batch_encoding["attention_mask"].to(device) if use_attention_mask else None
+            batch_encoding["attention_mask"] if use_attention_mask else None
         )
         outputs = self.model(
-            input_ids=batch_encoding["input_ids"].to(device),
+            input_ids=batch_encoding["input_ids"],
             attention_mask=attention_mask,
             output_hidden_states=output_hidden_states
             or hidden_state_skip_layer is not None,
@@ -344,7 +335,7 @@ class TextEncoder(nn.Cell):
             )
         return TextEncoderModelOutput(last_hidden_state, attention_mask)
 
-    def forward(
+    def construct(
         self,
         text,
         use_attention_mask=None,
