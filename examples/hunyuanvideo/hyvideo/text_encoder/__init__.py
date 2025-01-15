@@ -7,14 +7,13 @@ sys.path.insert(0, mindone_lib_path)
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
-from transformers import CLIPTextModel, CLIPTokenizer, AutoTokenizer, AutoModel
+from transformers import CLIPTokenizer, AutoTokenizer
 from transformers.utils import ModelOutput
 from mindspore import nn, Tensor
 
 from constants import TEXT_ENCODER_PATH, TOKENIZER_PATH
 from constants import PRECISION_TO_TYPE
 from mindone.transformers import CLIPTextModel, LlamaModel
-
 
 
 def use_default(value, default):

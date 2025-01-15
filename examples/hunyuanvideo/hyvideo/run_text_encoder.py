@@ -1,3 +1,5 @@
+from typing import List, Union
+
 import mindspore as ms
 
 from text_encoder import TextEncoder
@@ -54,9 +56,10 @@ apply_final_norm = False
 reproduce = False
 
 
-def main(text, text_encoder_choices):
+def build_model(text_encoder_choices: List[str]):
+    text_encoder, text_encoder_2 = None, None
+
     # llm
-    text_encoder, output = None, None
     if text_encoder_name in text_encoder_choices:
         text_encoder = TextEncoder(
             text_encoder_type=text_encoder_name,
@@ -71,7 +74,29 @@ def main(text, text_encoder_choices):
             apply_final_norm=apply_final_norm,
             reproduce=reproduce,
         )
-        output = text_encoder(        
+
+    # clipL
+    if text_encoder_2_name in text_encoder_choices:
+        text_encoder_2 = TextEncoder(
+            text_encoder_type=text_encoder_2_name,
+            max_length=text_len_2,
+            text_encoder_precision=text_encoder_precision_2,
+            text_encoder_path = text_encoder_2_path,
+            tokenizer_type=tokenizer_2,
+            tokenizer_path=tokenizer_2_path,
+            reproduce=reproduce,
+        )    
+
+    return text_encoder, text_encoder_2
+
+
+def encode(text: Union[str, List[str]], text_encoder_choices: List[str]):
+    text_encoder, text_encoder_2 = build_model(text_encoder_choices)
+    output, output_2 = None, None
+
+    # llm
+    if text_encoder is not None:
+        output = text_encoder(
             text,
             use_attention_mask=None,
             output_hidden_states=False,
@@ -81,17 +106,7 @@ def main(text, text_encoder_choices):
         )
 
     # clipL
-    text_encoder_2, output_2 = None, None
-    if text_encoder_2_name in text_encoder_choices:
-        text_encoder_2 = TextEncoder(
-            text_encoder_type=text_encoder_2_name,
-            max_length=text_len_2,
-            text_encoder_precision=text_encoder_precision_2,
-            text_encoder_path = text_encoder_path,
-            tokenizer_type=tokenizer_2,
-            tokenizer_path=tokenizer_path,
-            reproduce=reproduce,
-        )    
+    if text_encoder_2 is not None:
         output_2 = text_encoder_2(        
             text,
             use_attention_mask=None,
@@ -112,7 +127,7 @@ if __name__ == "__main__":
         ms.set_context(jit_config={"jit_level": jit_level})
     
     text_encoder_choices = ["llm"]  # ["clipL", "llm"]
-    text = "hello world"
-    output, output_2 = main(text)
+    text = ["hello world"]
+    output, output_2 = encode(text, text_encoder_choices)
     print(output)
     print(output_2)
