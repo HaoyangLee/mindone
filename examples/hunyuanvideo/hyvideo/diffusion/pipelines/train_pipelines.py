@@ -15,12 +15,13 @@ class DiffusionWithLoss(nn.Cell):
     """An training pipeline for diffusion model
 
     Args:
-        model (nn.Cell): A noise prediction model to denoise the encoded image latents.
+        network (nn.Cell): A noise prediction model to denoise the encoded image latents.
         vae (nn.Cell): Variational Auto-Encoder (VAE) Model to encode and decode images to and from latent representations.
-        noise_scheduler: (object): A class for noise scheduler, such as DDPM scheduler
         text_encoder / text_encoder_2 (nn.Cell): A text encoding model which accepts token ids and returns text embeddings in shape (T, D).
             T is the number of tokens, and D is the embedding dimension.
-        train_with_embed (bool): whether to train with embeddings (no need vae and text encoder to extract latent features and text embeddings)
+        text_emb_cached (bool): Whether to train with text embeddings.
+        video_emb_cached (bool): Whether to train with video embeddings.
+        embedded_guidance_scale (float): The scale factor of the embedded guidance for cfg.
     """
 
     def __init__(

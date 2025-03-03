@@ -259,6 +259,18 @@ def add_inference_args(parser: argparse.ArgumentParser):
         action="store_true",
         help="Use CPU offload for the model load.",
     )
+    group.add_argument(
+        "--lora-ckpt-path",
+        type=str,
+        default=None,
+        help="Path to lora ckpt.",
+    )
+    group.add_argument(
+        "--lora-alpha",
+        type=float,
+        default=1.0,
+        help="The strength of lora, typically in range [0, 1].",
+    )
 
     # ======================== Inference general setting ========================
     group.add_argument(

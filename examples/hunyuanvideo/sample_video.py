@@ -11,8 +11,8 @@ __dir__ = os.path.dirname(os.path.abspath(__file__))
 mindone_lib_path = os.path.abspath(os.path.join(__dir__, "../../"))
 sys.path.insert(0, mindone_lib_path)
 from mindone.visualize.videos import save_videos
+from mindone.models.lora import merge_lora_to_model_weights
 
-# from hyvideo.utils.file_utils import save_videos_grid
 sys.path.append(".")
 from hyvideo.config import parse_args
 from hyvideo.inference import HunyuanVideoSampler
@@ -47,6 +47,15 @@ def main():
 
     # Load models
     hunyuan_video_sampler = HunyuanVideoSampler.from_pretrained(models_root_path, args=args, rank_id=rank_id)
+
+    # merge lora weight to main model
+    if args.lora_ckpt_path is not None:
+        assert os.path.isfile(args.lora_ckpt_path), f"Lora checkpoint not found: {args.lora_ckpt_path}"
+        hunyuan_video_sampler.model = merge_lora_to_model_weights(hunyuan_video_sampler.model,
+                                                                  args.lora_ckpt_path,
+                                                                  args.lora_alpha,
+                                                                  )
+        logger.info(f"Lora weights are loaded from {args.lora_ckpt_path}.")
 
     # Get the updated args
     args = hunyuan_video_sampler.args
