@@ -29,6 +29,7 @@ from mindone.trainers import create_optimizer, create_scheduler
 from mindone.trainers.callback import EvalSaveCallback, OverflowMonitor, StopAtStepCallback
 from mindone.trainers.zero import prepare_train_network
 from mindone.utils import count_params, init_train_env, set_logger
+from mindone.models.lora import inject_trainable_lora, make_only_lora_params_trainable
 
 logger = logging.getLogger(__name__)
 
@@ -141,6 +142,28 @@ def main(args):
         video_emb_cached=bool(args.dataset.vae_latent_folder),
         embedded_guidance_scale=embed_cfg_scale,
     )
+
+    if args.train.save.use_lora:
+        lora_layers, _ = inject_trainable_lora(
+            latent_diffusion_with_loss,
+            rank=args.train.save.lora_rank,
+            use_fp16=True,
+            scale=args.train.save.lora_alpha,
+            target_modules=["hyvideo.modules.token_refiner.IndividualTokenRefinerBlock",
+                            "hyvideo.modules.models.MMDoubleStreamBlock",
+                            "hyvideo.modules.models.MMSingleStreamBlock",
+                            ],
+            target_layers=["self_attn_qkv", "self_attn_proj",
+                           "img_attn_qkv", "img_attn_proj", "txt_attn_qkv", "txt_attn_proj",
+                           "linear1", "linear2",
+                           ],
+        )
+        trainable_params = make_only_lora_params_trainable(latent_diffusion_with_loss)
+        logger.info(
+            "Lora layers injected. Num lora layers: {}, Num trainable params: {}".format(
+                len(lora_layers), len(trainable_params)
+            )
+        )
 
     # 4. build train & val datasets
     if args.train.sequence_parallel.shards > 1:
@@ -286,6 +309,7 @@ def main(args):
                 f"Model name: {args.model.name}",
                 f"Model dtype: {model_dtype}",
                 f"vae dtype: {vae_dtype}",
+                f"Use lora finetune: {args.train.save.use_lora}",
                 f"Num params: {num_params:,} (network: {num_params_network:,}, vae: {num_params_vae:,})",
                 f"Num trainable params: {num_params_trainable:,}",
                 f"Learning rate: {args.train.lr_scheduler.lr:.0e}",
@@ -304,7 +328,7 @@ def main(args):
             ]
         )
         key_info += "\n" + "=" * 50
-        print(key_info)
+        logger.info(key_info)
         parser.save(args, args.train.output_path + "/config.yaml", format="yaml", overwrite=True)
 
     # 6. train
@@ -388,6 +412,9 @@ if __name__ == "__main__":
             "resume_prefix_blacklist",
         },
         instantiate=False,
+    )
+    parser.add_argument(
+        "--train.lora-alpha", default=1.0, type=float, help="The strength of lora, typically in range [0, 1]."
     )
 
     # validation

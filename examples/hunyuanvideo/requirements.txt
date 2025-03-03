@@ -11,6 +11,10 @@ tokenizers==0.20.3
 transformers==4.46.3
 gradio
 albumentations>=2.0
-ftfy
-beautifulsoup4
+ftfy==6.3.1
+beautifulsoup4==4.12.3
+mindcv==0.3.0
 jsonargparse>=4.36
+accelerate==0.26.0
+logguru==0.7.3
+av==14.1.0

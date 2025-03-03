@@ -5,6 +5,8 @@ from omegaconf import DictConfig, ListConfig, OmegaConf
 
 
 def str2bool(b):
+    if isinstance(b, bool):
+        return b
     if b.lower() not in ["false", "true"]:
         raise Exception("Invalid Bool Value")
     if b.lower() in ["false"]:
