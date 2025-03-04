@@ -219,7 +219,7 @@ def inject_trainable_lora(
                 cur_layer[index] = new_lora_dense_layers[layer_name]
                 setattr(subcell, listname, cur_layer)
             elif hasattr(subcell, layer_name):
-                setattr(subcell, layer_name, new_lora_dense_layers[i])
+                setattr(subcell, layer_name, new_lora_dense_layers[layer_name])
             else:
                 print(f"Injecting lora layers: no layer {layer_name} found in module {subcell.__class__}.")  # TODO: log can be improved
                 continue
