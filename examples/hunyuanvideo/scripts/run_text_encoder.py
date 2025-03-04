@@ -17,6 +17,7 @@ from hyvideo.dataset.text_dataset import create_dataloader
 from hyvideo.text_encoder import TextEncoder
 from hyvideo.utils.message_utils import print_banner
 from hyvideo.utils.ms_utils import init_env
+from hyvideo.utils import text_preprocessing
 
 from mindone.utils.config import str2bool
 from mindone.utils.logger import set_logger
@@ -192,6 +193,12 @@ def parse_args():
         type=str,
         default=None,
         help="text prompt",
+    )
+    parser.add_argument(
+        "--text-preprocessing",
+        type=str2bool,
+        default=False,
+        help="Whether do text preprocessing on input prompts.",
     )
     parser.add_argument(
         "--output-path",
@@ -373,6 +380,8 @@ def main(args):
         file_paths = data["file_path"]
         captions = data["caption"]
         captions = [str(captions[i]) for i in range(len(captions))]
+        if args.text_preprocessing:
+            captions = [text_preprocessing(prompt) for prompt in captions]
 
         output, output_2 = None, None
         # llm
