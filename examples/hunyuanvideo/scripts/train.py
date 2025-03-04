@@ -148,7 +148,7 @@ def main(args):
             latent_diffusion_with_loss,
             rank=args.train.save.lora_rank,
             use_fp16=True,
-            scale=args.train.save.lora_alpha,
+            scale=args.train.lora_alpha,
             target_modules=["hyvideo.modules.token_refiner.IndividualTokenRefinerBlock",
                             "hyvideo.modules.models.MMDoubleStreamBlock",
                             "hyvideo.modules.models.MMSingleStreamBlock",
@@ -160,7 +160,7 @@ def main(args):
         )
         trainable_params = make_only_lora_params_trainable(latent_diffusion_with_loss)
         logger.info(
-            "Lora layers injected. Num lora layers: {}, Num trainable params: {}".format(
+            "Lora layers injected. Num of lora layers: {}. Num of lora trainable params: {}".format(
                 len(lora_layers), len(trainable_params)
             )
         )
