@@ -8,6 +8,7 @@ from mindspore import Profiler, Tensor, nn, ops, save_checkpoint
 from mindspore.communication import get_rank
 from mindspore.communication.management import GlobalComm
 from mindspore.train.callback._callback import Callback, _handle_loss
+from mindspore.profiler import ProfilerLevel
 
 from .checkpoint import CheckpointManager
 from .ema import EMA
@@ -424,7 +425,7 @@ class ProfilerCallback(Callback):
         # If value of profile_framework is not None, a subdirectory named host_info will be generated under the
         # specified profiler directory to store the collected memory and time files on the Host side.
         self.profiler = Profiler(
-            start_profile=False, output_path=out_dir, profile_framework="all", data_simplication=False
+            start_profile=False, output_path=out_dir, profile_framework="all", data_simplication=False, profiler_level=ProfilerLevel.Level1,
         )
 
     def on_train_step_begin(self, run_context):

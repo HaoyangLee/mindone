@@ -30,6 +30,7 @@ from mindone.trainers.callback import EvalSaveCallback, OverflowMonitor, Profile
 from mindone.trainers.checkpoint import CheckpointManager
 from mindone.trainers.zero import prepare_train_network
 from mindone.utils import count_params, init_train_env, set_logger
+from mindone.utils.config import str2bool
 
 logger = logging.getLogger(__name__)
 
@@ -479,7 +480,7 @@ if __name__ == "__main__":
     parser.add_argument(  # FIXME: support bucketing
         "--dataloader.batch_size", default=1, type=Union[int, Dict[str, int]], help="Number of samples per batch"
     )
-    parser.add_argument("--profile", default=False, type=bool, help="Profile time analysis or not")
+    parser.add_argument("--profile", default=None, type=str2bool, help="Profile time analysis or not.")
     parser.link_arguments("env.debug", "dataloader.debug", apply_on="parse")
     parser.add_function_arguments(create_parallel_group, "train.sequence_parallel")
     parser.add_function_arguments(create_scheduler, "train.lr_scheduler", skip={"steps_per_epoch", "num_epochs"})
