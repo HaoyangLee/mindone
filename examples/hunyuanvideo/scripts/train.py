@@ -26,10 +26,11 @@ from hyvideo.vae import load_vae
 
 from mindone.data import create_dataloader
 from mindone.trainers import create_optimizer, create_scheduler
-from mindone.trainers.callback import EvalSaveCallback, OverflowMonitor, StopAtStepCallback
+from mindone.trainers.callback import EvalSaveCallback, OverflowMonitor, StopAtStepCallback, ProfilerCallback
 from mindone.trainers.zero import prepare_train_network
 from mindone.utils import count_params, init_train_env, set_logger
 from mindone.models.lora import inject_trainable_lora, make_only_lora_params_trainable
+from mindone.utils.config import str2bool
 
 logger = logging.getLogger(__name__)
 
@@ -331,6 +332,9 @@ def main(args):
         logger.info(key_info)
         parser.save(args, args.train.output_path + "/config.yaml", format="yaml", overwrite=True)
 
+    if args.profile:
+        callbacks.append(ProfilerCallback(start_step=2, end_step=3, out_dir="./profile_data"))
+
     # 6. train
     logger.info("Start training...")
     # train() uses epochs, so the training will be terminated by the StopAtStepCallback
@@ -434,6 +438,7 @@ if __name__ == "__main__":
         create_dataloader, "valid.dataloader", skip={"dataset", "transforms", "device_num", "rank_id"}
     )
     parser.link_arguments("env.debug", "valid.dataloader.debug", apply_on="parse")
+    parser.add_argument("--profile", default=None, type=str2bool, help="Profile time analysis or not.")
 
     cfg = parser.parse_args()
     main(cfg)
