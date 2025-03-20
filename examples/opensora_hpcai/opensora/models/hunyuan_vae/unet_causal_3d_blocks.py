@@ -1,10 +1,11 @@
 from typing import Optional, Tuple, Union
 
 import numpy as np
+from opensora.models.vae.utils import ChannelChunkConv3d, get_activation, get_conv3d_n_chunks
+
 import mindspore as ms
 from mindspore import mint, nn
 
-from opensora.models.vae.utils import get_activation, ChannelChunkConv3d, get_conv3d_n_chunks
 from mindone.diffusers.models.attention_processor import Attention
 from mindone.diffusers.utils import logging
 
@@ -20,7 +21,9 @@ def chunk_nearest_interpolate(
     limit = INTERPOLATE_NUMEL_LIMIT // np.prod(scale_factor)
     n_chunks = get_conv3d_n_chunks(x.numel(), x.shape[1], limit)
     x_chunks = x.chunk(n_chunks, dim=1)
-    x_chunks = [mint.nn.functional.interpolate(x_chunk, scale_factor=scale_factor, mode="nearest") for x_chunk in x_chunks]
+    x_chunks = [
+        mint.nn.functional.interpolate(x_chunk, scale_factor=scale_factor, mode="nearest") for x_chunk in x_chunks
+    ]
     return mint.cat(x_chunks, dim=1)
 
 
@@ -31,7 +34,7 @@ def prepare_causal_attention_mask(n_frame: int, n_hw: int, dtype, batch_size: in
         i_frame = i // n_hw
         mask[i, : (i_frame + 1) * n_hw] = 0
     if batch_size is not None:
-        mask = mask.unsqueeze(0).expand(batch_size, -1, -1)
+        mask = mask.unsqueeze(0).expand((batch_size, -1, -1))
     return mask
 
 
@@ -70,6 +73,7 @@ class CausalConv3d(nn.Cell):
         x = mint.nn.functional.pad(x, self.time_causal_padding, mode=self.pad_mode)
         return self.conv(x)
 
+
 class UpsampleCausal3D(nn.Cell):
     """
     A 3D upsampling layer with an optional convolution.
@@ -86,7 +90,7 @@ class UpsampleCausal3D(nn.Cell):
         super().__init__()
         self.channels = channels
         self.out_channels = out_channels or channels
-        self.upsample_factor = upsample_factor
+        self.upsample_factor = tuple(float(uf) for uf in upsample_factor)  # upsample_factor must be float in MindSpore
         self.conv = CausalConv3d(self.channels, self.out_channels, kernel_size=kernel_size, bias=bias)
 
     def construct(
@@ -131,6 +135,7 @@ class UpsampleCausal3D(nn.Cell):
         hidden_states = self.conv(hidden_states)
 
         return hidden_states
+
 
 class DownsampleCausal3D(nn.Cell):
     """
