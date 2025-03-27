@@ -93,11 +93,7 @@ def create_video_transforms(h, w, interpolation="bicubic", name="center"):
             ],
         )
     elif name == "crop_resize":
-        pixel_transforms = A.Compose(
-            [
-                MinCropAndResize(h, w, interpolation=mapping[interpolation]),
-            ],
-        )
+        MinCropAndResize(h, w, interpolation=mapping[interpolation])
 
     return pixel_transforms
 

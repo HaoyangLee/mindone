@@ -540,6 +540,16 @@ After running, the text embeddings saved as npz file for each caption will be in
 
 If the storage budget is sufficient, you may also cache the video embedding by
 
+- opensora 2.0
+
+Set the necessary paths in `scripts/run/run_infer_vae_v2.sh`.
+
+```
+bash scripts/run/run_infer_vae_v2.sh
+```
+
+- opensora 1.x
+
 ```bash
 python scripts/infer_vae.py \
     --csv_path /path/to/video_caption.csv  \
@@ -591,8 +601,8 @@ Finally, the training data should be like follows.
 Each npz file contains data for the following keys:
 - `latent_mean` mean of vae latent distribution
 - `latent_std`: std of vae latent distribution
-- `fps`: video fps
-- `ori_size`: original size (h, w) of the video
+- `fps`: video fps (only in opensora 1.x)
+- `ori_size`: original size (h, w) of the video (only in opensora 1.x)
 
 After caching VAE, you can use them for STDiT training by parsing `--vae_latent_folder=/path/to/video_embed_folder` to the training script `python train.py`.
 

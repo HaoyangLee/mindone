@@ -277,6 +277,17 @@ After running, the text embeddings saved as npz file for each caption will be in
 Please change `csv_path` to your video-caption annotation file accordingly.
 
 ### 2. Generate VAE embeddings (Optional)
+
+- opensora 2.0
+
+Set the necessary paths in `scripts/run/run_infer_vae_v2.sh`.
+
+```
+bash scripts/run/run_infer_vae_v2.sh
+```
+
+- opensora 1.x
+
 ```
 python scripts/infer_vae.py\
     --csv_path ../videocomposer/datasets/webvid5/video_caption.csv \
@@ -286,7 +297,7 @@ python scripts/infer_vae.py\
     --image_size 256 \
 ```
 
-After running, the vae latents saved as npz file for each video will be in `output_dir`.
+After running, the vae latents saved as npz file for each video will be in `output_path`.
 
 For parallel inference, please refer to `scripts/run/run_infer_vae_parallel.sh`
 
