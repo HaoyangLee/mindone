@@ -238,7 +238,7 @@ def main(args):
             motion_lora_layers, _ = inject_trainable_lora(
                 latent_diffusion_with_loss,
                 rank=args.motion_lora_rank,
-                use_fp16=True,
+                dtype=ms.float16,
                 scale=args.motion_lora_alpha,
                 target_modules=["ad.modules.diffusionmodules.motion_module.VersatileAttention"],
             )
