@@ -148,13 +148,16 @@ def main(args):
         lora_layers, _ = inject_trainable_lora(
             latent_diffusion_with_loss,
             rank=args.train.save.lora_rank,
-            use_fp16=True,
+            dtype=args.train.lora_dtype,
             scale=args.train.lora_alpha,
-            target_modules=["hyvideo.modules.token_refiner.IndividualTokenRefinerBlock",
+            target_modules=["hyvideo.modules.mlp_layers.FinalLayer",
+                            "hyvideo.modules.modulate_layers.ModulateDiT",
+                            "hyvideo.modules.mlp_layers.MLP",
                             "hyvideo.modules.models.MMDoubleStreamBlock",
                             "hyvideo.modules.models.MMSingleStreamBlock",
                             ],
-            target_layers=["self_attn_qkv", "self_attn_proj",
+            target_layers=["linear",
+                           "fc1", "fc2",
                            "img_attn_qkv", "img_attn_proj", "txt_attn_qkv", "txt_attn_proj",
                            "linear1", "linear2",
                            ],
@@ -310,6 +313,7 @@ def main(args):
                 f"Model name: {args.model.name}",
                 f"Model dtype: {model_dtype}",
                 f"vae dtype: {vae_dtype}",
+                f"lora dtype: {args.train.lora_dtype}",
                 f"Use lora finetune: {args.train.save.use_lora}",
                 f"Num params: {num_params:,} (network: {num_params_network:,}, vae: {num_params_vae:,})",
                 f"Num trainable params: {num_params_trainable:,}",
@@ -419,6 +423,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--train.lora-alpha", default=1.0, type=float, help="The strength of lora, typically in range [0, 1]."
+    )
+    parser.add_argument(
+        "--train.lora-dtype", default=ms.bfloat16, type=ms.dtype, help="Data type in lora dense layers."
     )
 
     # validation

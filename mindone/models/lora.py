@@ -104,7 +104,7 @@ def inject_trainable_lora(
     rank: int = 4,
     dropout_p: float = 0.0,
     scale: float = 1.0,
-    use_fp16: bool = True,
+    dtype: ms.dtype = ms.float32,
     verbose: int = 0,
 ):
     """
@@ -119,7 +119,7 @@ def inject_trainable_lora(
         rank: lora rank
         dropout_p: dropout_probility of lora output
         scale: lora alpha, indicating the strength of lora output
-        use_fp16: whether compute lora dense layers in float16
+        dtype: data type in lora dense layers
 
     Return:
         network with lora layers injected to the target layers in target modules
@@ -129,7 +129,6 @@ def inject_trainable_lora(
     """
     target_modules = [get_obj_from_str(m) for m in target_modules]
 
-    dtype = ms.float16 if use_fp16 else ms.float32
     ori_net_stat = {}
     ori_net_stat["num_params"] = len(list(net.get_parameters()))
 
