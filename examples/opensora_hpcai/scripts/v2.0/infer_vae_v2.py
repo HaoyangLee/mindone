@@ -10,7 +10,7 @@ import numpy as np
 from tqdm import tqdm
 
 import mindspore as ms
-from mindspore import mint, nn
+from mindspore import nn
 from mindspore.communication.management import get_group_size, get_rank, init
 
 __dir__ = os.path.dirname(os.path.abspath(__file__))
@@ -113,9 +113,6 @@ def init_env(
             "The current jit_level is not suitable because current MindSpore version or mode does not match,"
             "please ensure the MindSpore version >= ms2.3_0615, and use GRAPH_MODE."
         )
-
-    # if global_bf16:
-    #     ms.set_context(ascend_config={"precision_mode": "allow_mix_precision_bf16"})
 
     return rank_id, device_num
 
@@ -262,9 +259,6 @@ def parse_args():
         default="hpcai-tech/Open-Sora-v2/hunyuan_vae.safetensors",
         help="VAE checkpoint file path which is used to load vae weight.",
     )
-    # parser.add_argument(
-    #     "--sd_scale_factor", type=float, default=0.18215, help="VAE scale factor of Stable Diffusion model."
-    # )
     parser.add_argument(
         "--vae_precision",
         type=str,
@@ -282,19 +276,6 @@ def parse_args():
         default=False,
         type=str2bool,
         help="whether to enable flash attention. Default is False",
-    )
-    # parser.add_argument(
-    #     "--dtype",
-    #     default="fp32",
-    #     type=str,
-    #     choices=["bf16", "fp16", "fp32"],
-    #     help="what data type to use for latte. Default is `fp32`, which corresponds to ms.float16",
-    # )
-    parser.add_argument(
-        "--precision_mode",
-        default=None,
-        type=str,
-        help="If specified, set the precision mode for Ascend configurations.",
     )
     parser.add_argument("--frame_stride", default=1, type=int, help="frame sampling stride")
     parser.add_argument(
