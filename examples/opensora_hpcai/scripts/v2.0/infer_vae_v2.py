@@ -159,6 +159,8 @@ def main(args):
         config = yaml.load(f, Loader=yaml.FullLoader)
     ae_config = config["ae"]
     ae_config["dtype"] = args.vae_precision
+    if args.vae_checkpoint is not None:
+        ae_config["from_pretrained"] = args.vae_checkpoint
 
     model_ae = CausalVAE3D_HUNYUAN(**ae_config).set_train(False)
     del model_ae.decoder
@@ -256,8 +258,8 @@ def parse_args():
     parser.add_argument(
         "--vae_checkpoint",
         type=str,
-        default="hpcai-tech/Open-Sora-v2/hunyuan_vae.safetensors",
-        help="VAE checkpoint file path which is used to load vae weight.",
+        default=None,
+        help="VAE checkpoint file path which is used to load vae weight, will overwrite the path in ae_config.",
     )
     parser.add_argument(
         "--vae_precision",
